@@ -36,7 +36,7 @@ def showMainMenu():
     screen.blit(menuexit_text, exit_button)
 
 # Settings
-settingsmenu = pygame.image.load("c:/Users/joshu/Desktop/ARTS/graphics/settingsgear.png")
+settingsmenu = pygame.image.load("graphics/settingsgear.png")
 settings_text = menu_font.render("Settings", True, "Black")
 fullscreen_text = menu_font.render("Toggle Fullscreen", True, "Black")
 fullscreen_button = fullscreen_text.get_rect(center = (SCREEN_WIDTH/2, SCREEN_HEIGHT/2))
@@ -53,6 +53,10 @@ def showSettings():
     screen.blit(return_text, return_button)
 
 run = True
+
+# 0 = main menu
+# 1 = settings
+state = 0 
 while run:
 
     mouse_pos = pygame.mouse.get_pos()
@@ -60,17 +64,24 @@ while run:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             run = False
-        if event.type == pygame.MOUSEBUTTONDOWN:
-            if start_button.collidepoint(mouse_pos):
-                print("START")
-            elif settings_button.collidepoint(mouse_pos):
-                print("SETTINGS")
-            elif exit_button.collidepoint(mouse_pos):
-                print("EXIT")
-                run = False
+        if state == 0:
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if start_button.collidepoint(mouse_pos):
+                    print("START")
+                elif settings_button.collidepoint(mouse_pos):
+                    print("SETTINGS")
+                    state = 1
+                elif exit_button.collidepoint(mouse_pos):
+                    print("EXIT")
+                    run = False
+        if state == 1:
+            # main menu state stuff
+            pass
 
-    showMainMenu()
-    #showSettings()
+    if state == 0:
+        showMainMenu()
+    elif state == 1:
+        showSettings()
  
     pygame.display.update()
     clock.tick(60)
