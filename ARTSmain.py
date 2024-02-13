@@ -1,8 +1,7 @@
 import pygame
-import os
-#full_path = os.path.abspath("mainmenu.png")
 
 pygame.init()
+pygame.mixer.init()
 
 SCREEN_WIDTH = 900
 SCREEN_HEIGHT = 600
@@ -11,10 +10,16 @@ screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption('ARTSS')
 clock = pygame.time.Clock()
 
+# Audio
+button_sound = pygame.mixer.Sound("audio/click.wav")
+button_sound.set_volume(0.9)
+bg_music = pygame.mixer.Sound("audio/bgmusic.ogg")
+bg_music.set_volume(0.1)
+bg_music.play(loops = -1)
+
 menu_font = pygame.font.Font(None, 40)
 # Main Menu
-
-mainmenu = pygame.image.load("graphics/mainmenu.png")
+mainmenu_surface = pygame.image.load("graphics/mainmenu.png")
 mainmenu_text = menu_font.render("Air Runway and Taxiway Simulation System", True, "Black")
 menustart_text = menu_font.render("Start", True, "Black")
 start_button = menustart_text.get_rect(center = (SCREEN_WIDTH/2, SCREEN_HEIGHT/4))
@@ -23,7 +28,7 @@ settings_button = menusettings_text.get_rect(center = (SCREEN_WIDTH/2, SCREEN_HE
 menuexit_text = menu_font.render("Exit", True, "Black")
 exit_button = menuexit_text.get_rect(center = (SCREEN_WIDTH/2, SCREEN_HEIGHT*3/4))
 def showMainMenu():
-    screen.blit(mainmenu, (0, 0)) 
+    screen.blit(mainmenu_surface, (0, 0)) 
     screen.blit(mainmenu_text, (SCREEN_WIDTH/5, 0))
     pygame.draw.rect(screen, "White", start_button) 
     pygame.draw.rect(screen, "Black", start_button, 1, 3)
@@ -35,15 +40,15 @@ def showMainMenu():
     pygame.draw.rect(screen, "Black", exit_button, 1, 3)
     screen.blit(menuexit_text, exit_button)
 
-# Settings
-settingsmenu = pygame.image.load("graphics/settingsgear.png")
+# Settings Menu
+settingsmenu_surface = pygame.image.load("graphics/settingsgear.png")
 settings_text = menu_font.render("Settings", True, "Black")
 fullscreen_text = menu_font.render("Toggle Fullscreen", True, "Black")
 fullscreen_button = fullscreen_text.get_rect(center = (SCREEN_WIDTH/2, SCREEN_HEIGHT/2))
 return_text = menu_font.render("<--Return", True, "Black")
 return_button = return_text.get_rect(topleft = (0,0))
 def showSettings():
-    screen.blit(settingsmenu, (0,0))
+    screen.blit(settingsmenu_surface, (0,0))
     screen.blit(settings_text, (SCREEN_WIDTH/2.5, 0))
     pygame.draw.rect(screen, "White", fullscreen_button) 
     pygame.draw.rect(screen, "Black", fullscreen_button, 1, 3)
@@ -53,9 +58,8 @@ def showSettings():
     screen.blit(return_text, return_button)
 
 run = True
-
 # 0 = main menu
-# 1 = settings
+# 1 = settings menu
 state = 0 
 while run:
 
@@ -67,16 +71,25 @@ while run:
         if state == 0:
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if start_button.collidepoint(mouse_pos):
+                    button_sound.play()
                     print("START")
                 elif settings_button.collidepoint(mouse_pos):
+                    button_sound.play()
                     print("SETTINGS")
                     state = 1
                 elif exit_button.collidepoint(mouse_pos):
+                    button_sound.play()
                     print("EXIT")
                     run = False
         if state == 1:
-            # main menu state stuff
-            pass
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if fullscreen_button.collidepoint(mouse_pos):
+                    button_sound.play()
+                    print("FULLSCREEN")
+                elif return_button.collidepoint(mouse_pos):
+                    button_sound.play()
+                    print("RETURN")
+                    state = 0
 
     if state == 0:
         showMainMenu()
