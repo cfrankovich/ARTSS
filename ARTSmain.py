@@ -1,11 +1,18 @@
 import pygame
+import sys
 
 pygame.init()
 pygame.mixer.init()
 
-SCREEN_WIDTH = 900
-SCREEN_HEIGHT = 600
-screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+# Window mode
+windowmode = "Full"
+if windowmode == "Fullscreen":
+    screen = pygame.display.set_mode(flags=pygame.FULLSCREEN)
+    SCREEN_WIDTH, SCREEN_HEIGHT = screen.get_size()
+else:
+    SCREEN_WIDTH = 900
+    SCREEN_HEIGHT = 600
+    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 
 pygame.display.set_caption('ARTSS')
 clock = pygame.time.Clock()
@@ -21,8 +28,9 @@ menu_font = pygame.font.Font(None, 40)
 menu_titlefont = pygame.font.Font(None, 60)
 # Main Menu
 mainmenu_surface = pygame.image.load("graphics/mainmenu.png")
+mainmenu_surface = pygame.transform.smoothscale(mainmenu_surface, screen.get_size())
 mainmenu_text = menu_titlefont.render("Air Runway and Taxiway Simulation System", True, "Black")
-mainmenu_widget = mainmenu_text.get_rect(topleft = (10 , 0))
+mainmenu_widget = mainmenu_text.get_rect(midtop = (SCREEN_WIDTH/2 , 0))
 menustart_text = menu_font.render("Start", True, "Black")
 start_button = menustart_text.get_rect(center = (SCREEN_WIDTH/2, SCREEN_HEIGHT/4))
 menusettings_text = menu_font.render("Settings", True, "Black")
@@ -46,8 +54,9 @@ def showMainMenu():
 
 # Settings Menu
 settingsmenu_surface = pygame.image.load("graphics/settingsgear.png")
+settingsmenu_surface = pygame.transform.smoothscale(settingsmenu_surface, screen.get_size())
 settings_text = menu_titlefont.render("Settings", True, "Black")
-settings_widget = settings_text.get_rect(topleft = (SCREEN_WIDTH/2.5, 0))
+settings_widget = settings_text.get_rect(midtop = (SCREEN_WIDTH/2, 0))
 fullscreen_text = menu_font.render("Toggle Fullscreen", True, "Black")
 fullscreen_button = fullscreen_text.get_rect(center = (SCREEN_WIDTH/2, SCREEN_HEIGHT/2))
 return_text = menu_font.render("<--Return", True, "Black")
@@ -66,8 +75,9 @@ def showSettingsMenu():
 
 # Start/Login menu
 startmenu_surface = pygame.image.load("graphics/login.png")
+startmenu_surface = pygame.transform.smoothscale(startmenu_surface, screen.get_size())
 start_text = menu_titlefont.render("Login/Signup", True, "Black")
-start_widget = start_text.get_rect(topleft = (SCREEN_WIDTH/3, 0))
+start_widget = start_text.get_rect(midtop = (SCREEN_WIDTH/2, 0))
 login_text = menu_font.render("Login", True, "Black")
 login_button = login_text.get_rect(center = (SCREEN_WIDTH/2, SCREEN_HEIGHT/4))
 signup_text = menu_font.render("Signup", True, "Black")
@@ -146,5 +156,6 @@ while run:
     clock.tick(60)
 
 pygame.quit()  
+sys.exit()
 
 
