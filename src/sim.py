@@ -1,4 +1,4 @@
-from src.state_utils import Event
+from utils.states import Event
 
 class ARTSS():
     def __init__(self):

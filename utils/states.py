@@ -6,6 +6,7 @@ class State(Enum):
     SETTINGS = 3
     LOGIN = 4
     FULLSCREEN = 5
+    SIMULATION = 6
 
 class Event(Enum):
     GOTO_MAIN_MENU = 1
@@ -14,6 +15,8 @@ class Event(Enum):
     NONE = 4
     GOTO_LOGIN = 5
     TOGGLE_FULLSCREEN = 6
+    GOTO_SIMULTION = 7
+    CHECK_KEY = 8
 
 TRANSITION_TABLE = {
     # <event type>: <state to transition to>
@@ -23,4 +26,5 @@ TRANSITION_TABLE = {
     Event.NONE: None,
     Event.GOTO_LOGIN: State.LOGIN,
     Event.TOGGLE_FULLSCREEN: State.FULLSCREEN,
+    Event.GOTO_SIMULTION: State.SIMULATION
 }

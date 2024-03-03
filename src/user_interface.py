@@ -1,6 +1,31 @@
 import pygame
 import os
-from src.state_utils import State, Event 
+from utils.states import State, Event 
+
+
+class Simulation():
+    def __init__(self, ui):
+        self.ui = ui
+        font = pygame.font.Font(None, 40)
+        self.text = font.render("Simulation", True, "White")
+        self.text_widget = self.text.get_rect(midtop = (ui.screen_width/2, 0))
+        self.return_text = font.render("<--Return", True, "Black")
+        self.return_button = self.return_text.get_rect(topleft = (0,0))
+
+    def render(self):
+        screen = self.ui.screen
+        screen.fill((0, 0, 0))
+        screen.blit(self.text, self.text_widget)
+        pygame.draw.rect(self.ui.screen, "White", self.return_button) 
+        pygame.draw.rect(self.ui.screen, "Black", self.return_button, 1, 3)
+        self.ui.screen.blit(self.return_text, self.return_button)
+
+    def event_handler(self, pg_event, mouse_pos):
+        if pg_event.type == pygame.MOUSEBUTTONDOWN:
+            if self.return_button.collidepoint(mouse_pos):
+                self.ui.button_sound.play()
+                return Event.GOTO_MAIN_MENU
+        return Event.NONE
 
 
 class MainMenu():
@@ -97,17 +122,22 @@ class Login():
     def __init__(self, ui):
         self.ui = ui
 
-        menu_font = pygame.font.Font(None, 40)
+        self.menu_font = pygame.font.Font(None, 40)
         menu_titlefont = pygame.font.Font(None, 60)
         self.background = pygame.image.load("graphics/login.png")
         self.background = pygame.transform.smoothscale(self.background, self.ui.screen.get_size())
         self.text = menu_titlefont.render("Login", True, "Black")
         self.login_widget = self.text.get_rect(midtop = (ui.screen_width/2, 0))
 
-        self.login_text = menu_font.render("Login", True, "Black")
-        self.login_button = self.login_text.get_rect(center = (ui.screen_width/2, ui.screen_height/2))
+        self.key_text = self.menu_font.render("Enter Key", True, "Black")
+        self.key_input_box = pygame.Rect(100, 50, 540, 32)
+        self.color_inactive = pygame.Color("White")
+        self.color_active = pygame.Color("Light Gray")
+        self.key_input_box_color = self.color_inactive
+        self.input_active = False
+        self.key_input_text = ''
 
-        self.return_text = menu_font.render("<--Return", True, "Black")
+        self.return_text = self.menu_font.render("<--Return", True, "Black")
         self.return_button = self.return_text.get_rect(topleft = (0,0))
 
     def render(self):
@@ -115,21 +145,35 @@ class Login():
         pygame.draw.rect(self.ui.screen, "White", self.login_widget)
         pygame.draw.rect(self.ui.screen, "Black", self.login_widget, 1, 3)
         self.ui.screen.blit(self.text, self.login_widget)
-        pygame.draw.rect(self.ui.screen, "White", self.login_button) 
-        pygame.draw.rect(self.ui.screen, "Black", self.login_button, 1, 3)
-        self.ui.screen.blit(self.login_text, self.login_button)
+
+        pygame.draw.rect(self.ui.screen, self.key_input_box_color, self.key_input_box)
+        pygame.draw.rect(self.ui.screen, "Black", self.key_input_box, 1, 3)
+        key_text_surface = self.menu_font.render(self.key_input_text, True, "Black")
+        self.ui.screen.blit(key_text_surface, (self.key_input_box.x+5, self.key_input_box.y+5))
+
         pygame.draw.rect(self.ui.screen, "White", self.return_button) 
         pygame.draw.rect(self.ui.screen, "Black", self.return_button, 1, 3)
         self.ui.screen.blit(self.return_text, self.return_button)
 
     def event_handler(self, pg_event, mouse_pos):
         if pg_event.type == pygame.MOUSEBUTTONDOWN:
-            if self.login_button.collidepoint(mouse_pos):
-                self.ui.button_sound.play()
-                return Event.NONE
-            elif self.return_button.collidepoint(mouse_pos):
+            if self.return_button.collidepoint(mouse_pos):
                 self.ui.button_sound.play()
                 return Event.GOTO_MAIN_MENU
+            elif self.key_input_box.collidepoint(mouse_pos):
+                self.input_active = not self.input_active
+            else:
+                self.input_active = False
+            self.key_input_box_color = self.color_active if self.input_active else self.color_inactive
+
+        if pg_event.type == pygame.KEYDOWN:
+            if self.input_active:
+                if pg_event.key == pygame.K_RETURN:
+                    return Event.CHECK_KEY
+                elif pg_event.key == pygame.K_BACKSPACE:
+                    self.key_input_text = self.key_input_text[:-1]
+                else:
+                    self.key_input_text += pg_event.unicode
         return Event.NONE
 
 
@@ -189,6 +233,8 @@ class UserInterface():
                 self.screen_width, self.screen_height = self.screen.get_size()
                 self.Fullscreen = False
                 self.current_ui = Settings(self)
+        elif new_state == State.SIMULATION:
+            self.current_ui = Simulation(self)
 
     def quit(self):
         pygame.mixer.quit()
