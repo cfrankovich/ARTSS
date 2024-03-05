@@ -1,25 +1,83 @@
 import pygame
 import os
+import ast
 from utils.states import State, Event 
-
+from src.plane_agent import Plane
+from random import randint
 
 class Simulation():
     def __init__(self, ui):
         self.ui = ui
+
         font = pygame.font.Font(None, 40)
-        self.text = font.render("Simulation", True, "White")
-        self.text_widget = self.text.get_rect(midtop = (ui.screen_width/2, 0))
+        titlefont= pygame.font.Font(None, 60)
+        self.titletext = titlefont.render("Simulation", True, "White")
+        self.titletext_widget = self.titletext.get_rect(midtop = (ui.screen_width/2, 0))
+
         self.return_text = font.render("<--Return", True, "Black")
         self.return_button = self.return_text.get_rect(topleft = (0,0))
+
+        self.logheader_text = font.render("Log", True, "White")
+        self.logheader_widget = self.logheader_text.get_rect(center = (ui.screen_width/6, 50))
+        self.logbox = pygame.Rect((0, 75), (ui.screen_width/3, ui.screen_height - 75))
+
+        self.airport_text = font.render("Airport", True, "White")
+        self.airport_widget = self.airport_text.get_rect(center = (ui.screen_width *2/3, 50))
+        self.simbox = pygame.Rect((ui.screen_width/3, 75), (ui.screen_width * 2/3, ui.screen_height - 75))
+        self.airport_surface = pygame.image.load("graphics/DAB.png")
+        self.airport_surface = pygame.transform.smoothscale(self.airport_surface, (ui.screen_width * 2/3 - 10, ui.screen_height - 75 -10))
+
+        self.testplane = Plane("White", 100, 100)
 
     def render(self):
         screen = self.ui.screen
         screen.fill((0, 0, 0))
-        screen.blit(self.text, self.text_widget)
-        pygame.draw.rect(self.ui.screen, "White", self.return_button) 
-        pygame.draw.rect(self.ui.screen, "Black", self.return_button, 1, 3)
-        self.ui.screen.blit(self.return_text, self.return_button)
+        screen.blit(self.titletext, self.titletext_widget)
+        pygame.draw.rect(screen, "White", self.return_button) 
+        pygame.draw.rect(screen, "Black", self.return_button, 1, 3)
+        screen.blit(self.return_text, self.return_button)
 
+        screen.blit(self.logheader_text, self.logheader_widget)
+        screen.blit(self.airport_text, self.airport_widget)
+
+        pygame.draw.rect(screen, "White", self.logbox, 5, 5)
+        pygame.draw.rect(screen, "White", self.simbox, 5, 5)
+        screen.blit(self.airport_surface, (self.ui.screen_width/3 + 5, 80) )
+
+        testplane = self.testplane
+        simbox = self.simbox
+
+        if not simbox.collidepoint(testplane.rect.topleft):
+            rotated_plane = testplane.move(randint(9,12), randint(4,8))
+        elif not simbox.collidepoint(testplane.rect.bottomright):
+           rotated_plane = testplane.move(-randint(9,12), -randint(4,8))
+        elif not simbox.collidepoint(testplane.rect.topright):
+           rotated_plane = testplane.move(-randint(9,12), randint(4,8))
+        elif not simbox.collidepoint(testplane.rect.bottomleft):
+           rotated_plane = testplane.move(randint(9,12), -randint(6,8))
+        else:
+            a = 1
+            b = 1
+            if (pygame.time.get_ticks() % 60 == 0):
+                randdir = randint(1, 4)
+                if randdir == 1:
+                    a = 1 
+                    b = 1
+                elif randdir == 2:
+                    a = 1
+                    b = -1
+                elif randdir == 3:
+                   a = -1
+                   b = -1
+                else:
+                   a = -1
+                   b = 1
+            c = a * randint(1,2)
+            d = b * randint(1,2)
+            rotated_plane = testplane.move(c, d)
+        screen.blit(rotated_plane, rotated_plane.get_rect(center = testplane.rect.center))
+        pygame.display.flip()
+       
     def event_handler(self, pg_event, mouse_pos):
         if pg_event.type == pygame.MOUSEBUTTONDOWN:
             if self.return_button.collidepoint(mouse_pos):
@@ -35,7 +93,7 @@ class MainMenu():
         menu_font = pygame.font.Font(None, 40)
         menu_titlefont = pygame.font.Font(None, 60)
         self.background = pygame.image.load("graphics/mainmenu.png")
-        self.background = pygame.transform.smoothscale(self.background, self.ui.screen.get_size())
+        self.background = pygame.transform.smoothscale(self.background, ui.screen.get_size())
         self.menu_text = menu_titlefont.render("Air Runway and Taxiway Simulation System", True, "Black")
         self.menu_widget = self.menu_text.get_rect(midtop = (ui.screen_width/2, 0))
 
@@ -125,7 +183,7 @@ class Login():
         self.menu_font = pygame.font.Font(None, 40)
         menu_titlefont = pygame.font.Font(None, 60)
         self.background = pygame.image.load("graphics/login.png")
-        self.background = pygame.transform.smoothscale(self.background, self.ui.screen.get_size())
+        self.background = pygame.transform.smoothscale(self.background, ui.screen.get_size())
         self.text = menu_titlefont.render("Login", True, "Black")
         self.login_widget = self.text.get_rect(midtop = (ui.screen_width/2, 0))
 
@@ -178,7 +236,7 @@ class Login():
 
 
 class UserInterface():
-    def __init__(self, screen_width, screen_height):
+    def __init__(self):
         pygame.init()
         pygame.display.set_caption('ARTSS')
 
@@ -190,9 +248,14 @@ class UserInterface():
         self.menu_channel = pygame.mixer.Channel(0)
         self.menu_channel.play(self.bg_music, loops = -1)
 
-        self.Fullscreen = False
-        self.windowwidth, self.windowheight = screen_width, screen_height
-        self.screen = pygame.display.set_mode((self.windowwidth, self.windowheight))
+        
+        with open('settings.txt', 'r') as f:
+            settingsdata = f.read().strip()
+        self.fullscreen_setting = ast.literal_eval(settingsdata.split('=')[1].strip())
+        if self.fullscreen_setting:
+            self.screen = pygame.display.set_mode(flags=pygame.FULLSCREEN)
+        else:
+            self.screen = pygame.display.set_mode((1200, 800))
         self.screen_width, self.screen_height = self.screen.get_size()
         self.clock = pygame.time.Clock()
 
@@ -215,25 +278,34 @@ class UserInterface():
     
     def transition_state(self, new_state):
         # python's garbage collector takes care of "unloading"
-        # upon transitioning to simulation state, mute mixer channel 0
         if new_state == State.MAIN_MENU:
+            self.menu_channel.set_volume(0.1)
             self.current_ui = MainMenu(self) 
         elif new_state == State.SETTINGS:
+            self.menu_channel.set_volume(0.1)
             self.current_ui = Settings(self)
         elif new_state == State.LOGIN:
+            self.menu_channel.set_volume(0.1)
             self.current_ui = Login(self)
         elif new_state == State.FULLSCREEN:
-            if not self.Fullscreen:
+            if not self.fullscreen_setting:
                 self.screen = pygame.display.set_mode(flags=pygame.FULLSCREEN)
                 self.screen_width, self.screen_height = self.screen.get_size()
-                self.Fullscreen = True
+                self.fullscreen_setting = True
+                settingline = "Fullscreen = True\n"
+                with open("settings.txt","w+") as f:
+                    f.write(settingline)
                 self.current_ui = Settings(self)
-            elif self.Fullscreen:
-                self.screen = pygame.display.set_mode((self.windowwidth, self.windowheight))
+            elif self.fullscreen_setting:
+                self.screen = pygame.display.set_mode((1200, 800))
                 self.screen_width, self.screen_height = self.screen.get_size()
-                self.Fullscreen = False
+                self.fullscreen_setting = False
+                settingline = "Fullscreen = False\n"
+                with open("settings.txt","w+") as f:
+                    f.write(settingline)
                 self.current_ui = Settings(self)
         elif new_state == State.SIMULATION:
+            self.menu_channel.set_volume(0)
             self.current_ui = Simulation(self)
 
     def quit(self):
