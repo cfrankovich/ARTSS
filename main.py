@@ -3,7 +3,7 @@ from src.sim import ARTSS
 from utils.states import State, Event, TRANSITION_TABLE 
 from utils.login import check_key
 
-ui = UserInterface(900, 600)
+ui = UserInterface()
 sim = ARTSS()
 current_state = State.MAIN_MENU
 ui.transition_state(current_state)
