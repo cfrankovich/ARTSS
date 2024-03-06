@@ -1,6 +1,6 @@
 from utils.states import Event
+from atc_agent import Agent
 from utils.logger import Logger
-# from atc_agent import Agent
 
 
 class ARTSSClock():
@@ -18,6 +18,7 @@ class ARTSS():
     def __init__(self):
         self.clock = ARTSSClock(0)
         self.logger = Logger(self.clock) 
+        self.atc_agent = Agent()
 
     def tick(self):
         self.clock.tick()
