@@ -1,6 +1,7 @@
 import pygame
 import os
 import ast
+import math
 from utils.states import State, Event 
 from src.plane_agent import Plane
 from random import randint
@@ -21,6 +22,13 @@ class Simulation():
         self.logheader_widget = self.logheader_text.get_rect(center = (ui.screen_width/6, 50))
         self.logbox = pygame.Rect((0, 75), (ui.screen_width/3, ui.screen_height - 75))
 
+        self.logout_text = font.render("Outgoing", True, "Blue")
+        self.logout_widget = self.logout_text.get_rect(center = (ui.screen_width/6 - 5, 95))
+        self.logoutbox = pygame.Rect((0, 115), (ui.screen_width/3, ui.screen_height/2 - 115))
+        self.login_text = font.render("Incoming", True, "Green")
+        self.login_widget = self.login_text.get_rect(center = (ui.screen_width/6 - 5, ui.screen_height/2 + 20))
+        self.loginbox = pygame.Rect((0, ui.screen_height/2 + 40), (ui.screen_width/3, ui.screen_height - 75))
+
         self.airport_text = font.render("Airport", True, "White")
         self.airport_widget = self.airport_text.get_rect(center = (ui.screen_width *2/3, 50))
         self.simbox = pygame.Rect((ui.screen_width/3, 75), (ui.screen_width * 2/3, ui.screen_height - 75))
@@ -28,6 +36,28 @@ class Simulation():
         self.airport_surface = pygame.transform.smoothscale(self.airport_surface, (ui.screen_width * 2/3 - 10, ui.screen_height - 75 -10))
 
         self.testplane = Plane("White", 100, 100)
+
+    def draw_message_text(self, text, font, color, x , y, screen, allowed_width):
+        words = text.split()
+        lines = []
+        while len(words) > 0:
+            line_words = []
+            while len(words) > 0:
+                line_words.append(words.pop(0))
+                fw, fh = font.size(' '.join(line_words + words[:1]))
+                if fw > allowed_width:
+                    break
+            line = ' '.join(line_words)
+            lines.append(line)
+        y_offset = 0
+        for line in lines:
+            fw, fh = font.size(line)
+            tx = x - fw / 2
+            ty = y + y_offset
+            font_surface = font.render(line, True, color)
+            screen.blit(font_surface, (tx, ty))
+            y_offset += fh
+        return ty
 
     def render(self):
         screen = self.ui.screen
@@ -43,6 +73,20 @@ class Simulation():
         pygame.draw.rect(screen, "White", self.logbox, 5, 5)
         pygame.draw.rect(screen, "White", self.simbox, 5, 5)
         screen.blit(self.airport_surface, (self.ui.screen_width/3 + 5, 80) )
+
+        screen.blit(self.logout_text, self.logout_widget)
+        pygame.draw.rect(screen, "Blue", self.logoutbox, 2, 2)
+        screen.blit(self.login_text, self.login_widget)
+        pygame.draw.rect(screen, "Green", self.loginbox, 2, 2)
+
+        #test text
+        text = "This is some random test text to test the text wrapping ability of text for testing"
+        moretext = "Extra text for testing because testing text wrapping is important"
+        othertext = "More testing"
+        message_font = pygame.font.Font(None, 25)
+        last_y = self.draw_message_text(text, message_font, "Blue", self.logoutbox.centerx, self.logoutbox.topleft[1], screen, self.logoutbox.width) + 15
+        self.draw_message_text(moretext, message_font, "Blue", self.logoutbox.centerx, last_y, screen,self.logoutbox.width)
+        self.draw_message_text(othertext,message_font, "Green", self.loginbox.centerx, self.loginbox.topleft[1], screen, self.loginbox.width)
 
         testplane = self.testplane
         simbox = self.simbox
