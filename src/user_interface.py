@@ -1,7 +1,6 @@
 import pygame
 import os
 import ast
-import math
 from utils.states import State, Event 
 from src.plane_agent import Plane
 from random import randint
@@ -35,7 +34,9 @@ class Simulation():
         self.airport_surface = pygame.image.load("graphics/DAB.png")
         self.airport_surface = pygame.transform.smoothscale(self.airport_surface, (ui.screen_width * 2/3 - 10, ui.screen_height - 75 -10))
 
-        self.testplane = Plane("White", 100, 100)
+        self.testplane = Plane("White", 100, 100, "A67")
+        self.explosion = pygame.image.load("graphics/explosion.png")
+        self.explosion = pygame.transform.smoothscale(self.explosion, ui.screen.get_size())
 
     def draw_message_text(self, text, font, color, x , y, screen, allowed_width):
         words = text.split()
@@ -90,7 +91,7 @@ class Simulation():
 
         testplane = self.testplane
         simbox = self.simbox
-
+        
         if not simbox.collidepoint(testplane.rect.topleft):
             rotated_plane = testplane.move(randint(9,12), randint(4,8))
         elif not simbox.collidepoint(testplane.rect.bottomright):
@@ -100,26 +101,11 @@ class Simulation():
         elif not simbox.collidepoint(testplane.rect.bottomleft):
            rotated_plane = testplane.move(randint(9,12), -randint(6,8))
         else:
-            a = 1
-            b = 1
-            if (pygame.time.get_ticks() % 60 == 0):
-                randdir = randint(1, 4)
-                if randdir == 1:
-                    a = 1 
-                    b = 1
-                elif randdir == 2:
-                    a = 1
-                    b = -1
-                elif randdir == 3:
-                   a = -1
-                   b = -1
-                else:
-                   a = -1
-                   b = 1
-            c = a * randint(1,2)
-            d = b * randint(1,2)
-            rotated_plane = testplane.move(c, d)
+           rotated_plane = testplane.move(1, 1)
         screen.blit(rotated_plane, rotated_plane.get_rect(center = testplane.rect.center))
+        testfont = pygame.font.Font(None, 25)
+        planetext = testfont.render(testplane.flightnumber, True, "Blue")
+        screen.blit(planetext, rotated_plane.get_rect(center = testplane.rect.center))
         pygame.display.flip()
        
     def event_handler(self, pg_event, mouse_pos):

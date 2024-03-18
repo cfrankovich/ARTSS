@@ -2,7 +2,7 @@ import pygame
 import math
 
 class Plane(pygame.sprite.Sprite):
-    def __init__(self, color, height, width):
+    def __init__(self, color, height, width, flightnum):
        super().__init__() 
        self.color = color
        self.image = pygame.Surface([width, height])
@@ -11,6 +11,7 @@ class Plane(pygame.sprite.Sprite):
        self.rect = self.image.get_rect() 
        self.rect.x = 800
        self.rect.y = 400
+       self.flightnumber = flightnum
 
     def move(self, dx, dy):
 
@@ -22,14 +23,14 @@ class Plane(pygame.sprite.Sprite):
     
     def rot_direction(self, dx, dy):
         new_angle = 0
-        if (dy < 0 and dx > 0):      
-            new_angle = 0 + (math.atan(dy/dx) * 180 / math.pi)
-        elif (dy < 0 and dx < 0):
-            new_angle = 0 + (math.atan(dy/dx) * 180 / math.pi)
-        elif(dy > 0 and dx > 0):       
-            new_angle = -90 - (math.atan(dy/dx) * 180 / math.pi)
-        elif(dy > 0 and dx < 0):
-            new_angle = 180 + (math.atan(dy/dx) * 180 / math.pi)
+        if (dx > 0):      
+            new_angle = 0 + (math.atan(-dy/dx) * 180 / math.pi)
+        elif(dx < 0):
+            new_angle = 180 + (math.atan(-dy/dx) * 180 / math.pi)
+        elif(dx == 0 and dy < 0):
+            new_angle = 90
+        elif(dx == 0 and dy > 0):
+            new_angle = -90
         return new_angle
     
     def rot_center(self, image, angle):
