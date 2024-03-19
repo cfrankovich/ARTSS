@@ -31,12 +31,12 @@ def generate_flight_number():
     number_range = (100, 999)
     flight_number = random.randint(*number_range)
     airline_codes = ["DL", "AA", "ERU"]
-    airline_code = random.randrange(airline_codes) 
+    airline_code = random.choice(airline_codes) 
     return f"{airline_code}{flight_number}"
 
 
 used_flight_nums = []
-def generate_flight_data(status=FlightStatus.READY_FOR_PUSHBACK):
+def generate_flight_data(status=FlightStatus.AT_GATE):
     num = generate_flight_number()
     while num in used_flight_nums:
         num = generate_flight_number()
@@ -45,10 +45,6 @@ def generate_flight_data(status=FlightStatus.READY_FOR_PUSHBACK):
         "flight_number" : num,
         "status" : status,
         "gate" : get_random_gate([]), # TODO: used gate numbers
-        "vector" : 0,
-        "speed" : 0,
-        "altitude" : 0,
-        "desired_altitude" : 0,
         "runway" : None,
     }
 

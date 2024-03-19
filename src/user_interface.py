@@ -1,81 +1,74 @@
 import pygame
-import os
 import ast
 from utils.states import State, Event 
-from src.plane_agent import Plane
-from random import randint
+from src.sim import ARTSS
+from utils.map_handler import TileType, get_map 
+from .plane_agent import DEPARTED_ALTITUDE 
+
+FPS = 5 
+WIDTH = 1280
+HEIGHT = 720
+GRID_SPACE_SIZE = 20
+MAX_PLANE_SCALE = 4
 
 class Simulation():
     def __init__(self, ui):
         self.ui = ui
+        airport_image = pygame.image.load("graphics/sim_bg_blur.png")
+        self.airport_background = pygame.transform.scale(airport_image, (WIDTH, HEIGHT))
 
-        font = pygame.font.Font(None, 40)
-        titlefont= pygame.font.Font(None, 60)
-        self.titletext = titlefont.render("Simulation", True, "White")
-        self.titletext_widget = self.titletext.get_rect(midtop = (ui.screen_width/2, 0))
+        # grid for testing purposes
+        """
+        grid_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        for i, x in enumerate(get_map()):
+            for j, y in enumerate(x):
+                if y.type == TileType.NOTHING: 
+                    continue 
+                pygame.draw.rect(grid_surface, y.color, (i*GRID_SPACE_SIZE, j*GRID_SPACE_SIZE, 
+                                                GRID_SPACE_SIZE, GRID_SPACE_SIZE), 1)
+        self.rot_grid_surface = pygame.transform.rotate(grid_surface, 25)
+        """
 
-        self.return_text = font.render("<--Return", True, "Black")
-        self.return_button = self.return_text.get_rect(topleft = (0,0))
+        plane_img = pygame.image.load("graphics/plane_blue.png")
+        self.plane_img = pygame.transform.scale(plane_img, (20, 20))
 
-        self.logheader_text = font.render("Log", True, "White")
-        self.logheader_widget = self.logheader_text.get_rect(center = (ui.screen_width/6, 50))
-        self.logbox = pygame.Rect((0, 75), (ui.screen_width/3, ui.screen_height - 75))
-
-        self.airport_text = font.render("Airport", True, "White")
-        self.airport_widget = self.airport_text.get_rect(center = (ui.screen_width *2/3, 50))
-        self.simbox = pygame.Rect((ui.screen_width/3, 75), (ui.screen_width * 2/3, ui.screen_height - 75))
-        self.airport_surface = pygame.image.load("graphics/DAB.png")
-        self.airport_surface = pygame.transform.smoothscale(self.airport_surface, (ui.screen_width * 2/3 - 10, ui.screen_height - 75 -10))
-
-        self.testplane = Plane("White", 100, 100)
+        self.plane_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
 
     def render(self):
         screen = self.ui.screen
         screen.fill((0, 0, 0))
-        screen.blit(self.titletext, self.titletext_widget)
-        pygame.draw.rect(screen, "White", self.return_button) 
-        pygame.draw.rect(screen, "Black", self.return_button, 1, 3)
-        screen.blit(self.return_text, self.return_button)
 
-        screen.blit(self.logheader_text, self.logheader_widget)
-        screen.blit(self.airport_text, self.airport_widget)
+        airport_background_rect = self.airport_background.get_rect(center=(WIDTH / 2, HEIGHT / 2))
+        screen.blit(self.airport_background, airport_background_rect.topleft)
 
-        pygame.draw.rect(screen, "White", self.logbox, 5, 5)
-        pygame.draw.rect(screen, "White", self.simbox, 5, 5)
-        screen.blit(self.airport_surface, (self.ui.screen_width/3 + 5, 80) )
+        grid_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        for i, x in enumerate(get_map()):
+            for j, y in enumerate(x):
+                if y.type == TileType.NOTHING: 
+                    continue 
+                pygame.draw.rect(grid_surface, y.color, (i*GRID_SPACE_SIZE, j*GRID_SPACE_SIZE, 
+                                                GRID_SPACE_SIZE, GRID_SPACE_SIZE), y.fill)
+        self.rot_grid_surface = pygame.transform.rotate(grid_surface, 25)
+        screen.blit(self.rot_grid_surface, (WIDTH/2 - self.rot_grid_surface.get_width() / 2, HEIGHT/2 - self.rot_grid_surface.get_height() / 2))
 
-        testplane = self.testplane
-        simbox = self.simbox
+        self.plane_surface.fill((0, 0, 0, 0))
+        for plane in ARTSS.plane_queue:
+            facing_angle = plane.get_facing_direction().value
+            mx, my = plane.get_map_pos()
+            scale_factor = ((plane.altitude / DEPARTED_ALTITUDE) * (MAX_PLANE_SCALE - 1)) + 1 
+            size = self.plane_img.get_size()
+            width = size[0] * scale_factor 
+            height = size[1] * scale_factor 
+            x_offset = width - size[0] 
+            y_offset = height - size[1] 
+            x, y = (mx * GRID_SPACE_SIZE - (x_offset // 2), my * GRID_SPACE_SIZE - (y_offset // 2)) 
+            plane_img_rot = pygame.transform.rotate(self.plane_img, facing_angle)
+            plane_img_scaled = pygame.transform.scale(plane_img_rot, (width, height))
+            self.plane_surface.blit(plane_img_scaled, (x, y))
+            
+        ps = pygame.transform.rotate(self.plane_surface, 25) 
+        screen.blit(ps, (WIDTH/2 - ps.get_width() / 2, HEIGHT/2 - ps.get_height() / 2))
 
-        if not simbox.collidepoint(testplane.rect.topleft):
-            rotated_plane = testplane.move(randint(9,12), randint(4,8))
-        elif not simbox.collidepoint(testplane.rect.bottomright):
-           rotated_plane = testplane.move(-randint(9,12), -randint(4,8))
-        elif not simbox.collidepoint(testplane.rect.topright):
-           rotated_plane = testplane.move(-randint(9,12), randint(4,8))
-        elif not simbox.collidepoint(testplane.rect.bottomleft):
-           rotated_plane = testplane.move(randint(9,12), -randint(6,8))
-        else:
-            a = 1
-            b = 1
-            if (pygame.time.get_ticks() % 60 == 0):
-                randdir = randint(1, 4)
-                if randdir == 1:
-                    a = 1 
-                    b = 1
-                elif randdir == 2:
-                    a = 1
-                    b = -1
-                elif randdir == 3:
-                   a = -1
-                   b = -1
-                else:
-                   a = -1
-                   b = 1
-            c = a * randint(1,2)
-            d = b * randint(1,2)
-            rotated_plane = testplane.move(c, d)
-        screen.blit(rotated_plane, rotated_plane.get_rect(center = testplane.rect.center))
         pygame.display.flip()
        
     def event_handler(self, pg_event, mouse_pos):
@@ -255,7 +248,7 @@ class UserInterface():
         if self.fullscreen_setting:
             self.screen = pygame.display.set_mode(flags=pygame.FULLSCREEN)
         else:
-            self.screen = pygame.display.set_mode((1200, 800))
+            self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
         self.screen_width, self.screen_height = self.screen.get_size()
         self.clock = pygame.time.Clock()
 
@@ -264,7 +257,7 @@ class UserInterface():
     def render(self):
         self.current_ui.render()
         pygame.display.update()
-        self.clock.tick(60)
+        self.clock.tick(FPS)
 
     def event_handler(self):
         mouse_pos = pygame.mouse.get_pos()
