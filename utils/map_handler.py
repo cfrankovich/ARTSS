@@ -4,6 +4,7 @@ import random
 MAP_PATH = "map.csv"
 gates = {} 
 map = [] 
+runways = {}
 
 
 def get_map():
@@ -57,9 +58,10 @@ class Tile():
         return (self.x, self.y)
 
 
-def get_random_gate(gates_in_use):
+def get_random_gate(gates_in_use, flight_num):
     gate = random.choice(list(gates.items()))[0]
-    while gate in gates_in_use:
+    char_to_check = "A" if flight_num[:2] == "ER" else "B" # gates B-XX are exclusive to ERU flights 
+    while gate in gates_in_use and gate[0] == char_to_check:
         gate = random.choice(list(gates.items()))[0]
     return gate
 
@@ -79,6 +81,8 @@ def load_map():
                 t.set_info(info)
                 if tt == TileType.GATE:
                     gates[info] = (t.x, t.y)
+                elif tt == TileType.RUNWAY and info not in runways:
+                    runways[info] = int(info[:2]) * 10  
             except:
                 pass
             ml.append(t)
@@ -150,3 +154,24 @@ def get_runway_path(x, y):
         node = map[mx][my]
 
     return path1 if len(path1) > len(path2) else path2
+
+
+def find_taxiway_path(plane, queue, winds):
+    # TODO:
+    # get the average wind speed during the predicted time range from takeoff to departed 
+    # use this wind speed, max crosswind limit, required runway space, and distance to suggest a runway  
+    # determine the shortest path to this runway while evaluating different entrance possibilities
+    # evaluate the path comparing each step or node to other routes during the time
+
+    # INFO:
+    # a route can be shared no need to try and go around a plane going the same place
+    # the best route is one where it is not blocking the terminal entrance or gates if
+    # theres potentially a long queue, shortest path to runway, not crossing runways, not
+    # intersecting with other routes that have different destinations, etc. 
+
+    # TODO: 
+    # experiment by generating all possibilities and then draw the lines for the possibilities
+    # "grade" the possibilities and color them accordingly and take a screenshot would be good
+    # to have in presentation 
+
+    pass

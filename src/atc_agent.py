@@ -1,12 +1,13 @@
 from utils.coms import CommunicationType 
 from utils.logger import logger
-from utils.map_handler import get_map, TileType, temp_add_fill 
-from .plane_agent import DEPARTED_ALTITUDE
+from utils.map_handler import get_map, TileType, temp_add_fill
+from .plane_agent import DEPARTED_ALTITUDE, get_plane_queue
 
 AIRPORT = "DAB"
 
 class Agent():
-    def __init__(self):
+    def __init__(self, wind_function):
+        self.get_wind = wind_function # i hate this  
         pass
 
     def send_com(self, com, plane):
@@ -40,17 +41,19 @@ class Agent():
 
             plane.current_path = runway_path[:-1] # exclude runway 
 
+            #taxiway_path = find_taxiway_path(plane, get_plane_queue())
+
             return (f"{fn}, taxi to runway {runway_number}, via taxiways {taxiways}, hold short of runway {runway_number}.", CommunicationType.TAXI_CLEARANCE)
         if ct == CommunicationType.HOLDING_SHORT:
             runway_number = plane.flight_data["runway"] 
-            clear = True # TODO: check if the runway is clear
+            clear = self.is_runway_clear_for_lineup(runway_number)
             if clear:
                 return (f"{fn}, runway {runway_number}, line up and wait.", CommunicationType.LINE_UP)
-            return (f"{fn}, hold short of runway {runway_number}, standby.", CommunicationType.HOLD_SHORT)
+            return (f"{fn}, hold short of runway {runway_number}, standby.", CommunicationType.HOLDING_SHORT)
         if ct == CommunicationType.TAKEOFF_CLEARANCE:
-            #return (f"{fn}, runway {runway_number}, cleared for takeoff, wind {wind_direction} at {wind_speed}.", CommunicationType.TAKEOFF_CLEARANCE)
             runway_number = plane.flight_data["runway"] 
-            return (f"{fn}, runway {runway_number}, cleared for takeoff.", CommunicationType.TAKEOFF_CLEARANCE)
+            wind = self.get_wind()
+            return (f"{fn}, runway {runway_number}, cleared for takeoff, wind {wind[0]} degrees at {wind[1]} knots.", CommunicationType.TAKEOFF_CLEARANCE)
         if ct == CommunicationType.DEPARTURE:
             return (f"{fn}, radar contact, climb to {DEPARTED_ALTITUDE}, proceed on course.", CommunicationType.DEPARTURE)
         return None 
@@ -82,10 +85,22 @@ class Agent():
 
             for dx, dy in [(0, -1), (0, 1), (-1, 0), (1, 0)]:
                 next_node = (current_node[0] + dx, current_node[1] + dy)
-                type = map[next_node[0]][next_node[1]].type
-                if next_node not in visited and type is not TileType.NOTHING and type is not TileType.GATE:
+                node = map[next_node[0]][next_node[1]]
+                type_val = node.type.value
+                info = node.info 
+
+                if next_node not in visited and type_val % 3 != 0: # avoid nothing (0) and gate (3) tile types 
                     visited.append(next_node)
                     queue.append(next_node)
                     parent_map[next_node] = current_node
 
         return None
+
+    def is_runway_clear_for_lineup(self, runway_number):
+        pq = get_plane_queue()
+        for plane in pq:
+            if plane.flight_data["runway"] == runway_number:
+                status_val = abs(plane.get_status().value)
+                if status_val in range(7, 10): 
+                    return False
+        return True

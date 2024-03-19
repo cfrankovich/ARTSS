@@ -5,11 +5,11 @@ import random
 
 # values < 0 mean its "actionable" 
 class FlightStatus(Enum):
-    AT_GATE = 0 
-    READY_FOR_PUSHBACK = -1 # request to pushback via "PUSHBACK CLEARANCE" com 
-    PUSHBACK_IN_PROGRESS = 2
-    WAITING_FOR_TAXI_CLEARANCE = -3 # request to taxi via "TAXI CLEARANCE" com
-    TAXIING_TO_RUNWAY = 4
+    AT_GATE = 1 
+    READY_FOR_PUSHBACK = -2 # request to pushback via "PUSHBACK CLEARANCE" com 
+    PUSHBACK_IN_PROGRESS = 3
+    WAITING_FOR_TAXI_CLEARANCE = -4 # request to taxi via "TAXI CLEARANCE" com
+    TAXIING_TO_RUNWAY = 5
     HOLDING_SHORT = -6 # plane sends "HOLDING SHORT" com - now ready for "LINE UP" com 
     LINING_UP = 7 # recieved "LINE UP" com from atc, now awaiting "TAKEOFF CLEARANCE" com 
     WAITING_FOR_TAKEOFF_CLEARANCE = 8
@@ -27,16 +27,21 @@ class FlightStatus(Enum):
     SHUTTING_DOWN = 20 # pilot sends "AT THE GATE" com - marks success of landing 
 
 
+class PlaneCategory(Enum):
+    LARGE = 1
+    DEFAULT = 2
+    SMALL = 3
+
 def generate_flight_number():
     number_range = (100, 999)
     flight_number = random.randint(*number_range)
-    airline_codes = ["DL", "AA", "ERU"]
+    airline_codes = ["DL", "AA", "ERU", "ERU"] # DL, AA can only be in terminal A - ERU can only be in terminal B 
     airline_code = random.choice(airline_codes) 
     return f"{airline_code}{flight_number}"
 
 
 used_flight_nums = []
-def generate_flight_data(status=FlightStatus.AT_GATE):
+def generate_flight_data(gates_in_use, status=FlightStatus.AT_GATE):
     num = generate_flight_number()
     while num in used_flight_nums:
         num = generate_flight_number()
@@ -44,7 +49,7 @@ def generate_flight_data(status=FlightStatus.AT_GATE):
     flight_data = {
         "flight_number" : num,
         "status" : status,
-        "gate" : get_random_gate([]), # TODO: used gate numbers
+        "gate" : get_random_gate(gates_in_use, num), 
         "runway" : None,
     }
 
@@ -53,3 +58,30 @@ def generate_flight_data(status=FlightStatus.AT_GATE):
         flight_data["gate"] = None
 
     return flight_data 
+
+
+def generate_plane_info(): 
+    airline = used_flight_nums[-1][:2] # assuming this function is called after generate_flight_data 
+    plane_type = PlaneCategory.SMALL if airline == "ER" else random.choice([PlaneCategory.LARGE, PlaneCategory.DEFAULT])
+    
+    if plane_type == PlaneCategory.LARGE:
+        return {
+            "type" : plane_type, 
+            "crosswind_limit" : 30, # knots
+            "required_runway_space" : 20, # num squares required to takeoff and land
+            "ticks_per_tile" : 3, # num clock cycles to cover a tile (speed kinda) 
+        }
+    elif plane_type == PlaneCategory.DEFAULT:
+        return {
+            "type" : plane_type, 
+            "crosswind_limit" : 20, # knots
+            "required_runway_space" : 15, # num squares required to takeoff and land
+            "ticks_per_tile" : 2, # num clock cycles to cover a tile (speed kinda) 
+        }
+    # light plane 
+    return {
+        "type" : plane_type,
+        "crosswind_limit" : 12,
+        "required_runway_space" : 10, # num squares required to takeoff and land
+        "ticks_per_tile" : 1, # num clock cycles to cover a tile (speed kinda) 
+    }

@@ -1,24 +1,44 @@
 import pygame
 import ast
 from utils.states import State, Event 
-from src.sim import ARTSS
+from src.sim import get_wind_info, MIN_WIND_SPEED, MAX_WIND_SPEED
 from utils.map_handler import TileType, get_map 
-from .plane_agent import DEPARTED_ALTITUDE 
+from .plane_agent import DEPARTED_ALTITUDE, plane_queue 
 
-FPS = 5 
+FPS = 1 
 WIDTH = 1280
 HEIGHT = 720
 GRID_SPACE_SIZE = 20
 MAX_PLANE_SCALE = 4
+WIND_ARROW_COLOR = (255, 0, 85)
+
+
+def draw_text_with_outline(surface, text, font, pos, text_color, outline_color, outline_width, center):
+    text_surface = font.render(text, True, text_color)
+    text_rect = text_surface.get_rect()
+
+    if center:
+        x, y = pos
+        pos = (x - text_rect.width // 2, y - text_rect.height // 2)
+    else:
+        x, y = pos
+
+    for dx, dy in [(-1, -1), (-1, 1), (1, -1), (1, 1), (0, -1), (-1, 0), (1, 0), (0, 1)]:
+        outline_surface = font.render(text, True, outline_color)
+        surface.blit(outline_surface, (x + dx * outline_width - (text_rect.width // 2 if center else 0), \
+                                       y + dy * outline_width - (text_rect.height // 2 if center else 0)))
+
+    text_surface = font.render(text, True, text_color)
+    surface.blit(text_surface, pos)
+
 
 class Simulation():
     def __init__(self, ui):
         self.ui = ui
-        airport_image = pygame.image.load("graphics/sim_bg_blur.png")
+        airport_image = pygame.image.load("graphics/sim_bg_dark.png")
         self.airport_background = pygame.transform.scale(airport_image, (WIDTH, HEIGHT))
 
         # grid for testing purposes
-        """
         grid_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
         for i, x in enumerate(get_map()):
             for j, y in enumerate(x):
@@ -27,12 +47,17 @@ class Simulation():
                 pygame.draw.rect(grid_surface, y.color, (i*GRID_SPACE_SIZE, j*GRID_SPACE_SIZE, 
                                                 GRID_SPACE_SIZE, GRID_SPACE_SIZE), 1)
         self.rot_grid_surface = pygame.transform.rotate(grid_surface, 25)
-        """
 
-        plane_img = pygame.image.load("graphics/plane_blue.png")
-        self.plane_img = pygame.transform.scale(plane_img, (20, 20))
+        large_plane_img = pygame.image.load("graphics/large_plane.png")
+        default_plane_img = pygame.image.load("graphics/default_plane.png")
+        small_plane_img = pygame.image.load("graphics/small_plane.png")
+        self.plane_imgs = [large_plane_img, default_plane_img, small_plane_img]
 
         self.plane_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+
+        self.wind_arrow = pygame.image.load("graphics/wind_arrow.png")
+        self.font = pygame.font.Font(None, 34)
+        self.smaller_font = pygame.font.Font(None, 30)
 
     def render(self):
         screen = self.ui.screen
@@ -41,33 +66,50 @@ class Simulation():
         airport_background_rect = self.airport_background.get_rect(center=(WIDTH / 2, HEIGHT / 2))
         screen.blit(self.airport_background, airport_background_rect.topleft)
 
-        grid_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        for i, x in enumerate(get_map()):
-            for j, y in enumerate(x):
-                if y.type == TileType.NOTHING: 
-                    continue 
-                pygame.draw.rect(grid_surface, y.color, (i*GRID_SPACE_SIZE, j*GRID_SPACE_SIZE, 
-                                                GRID_SPACE_SIZE, GRID_SPACE_SIZE), y.fill)
-        self.rot_grid_surface = pygame.transform.rotate(grid_surface, 25)
-        screen.blit(self.rot_grid_surface, (WIDTH/2 - self.rot_grid_surface.get_width() / 2, HEIGHT/2 - self.rot_grid_surface.get_height() / 2))
+        #screen.blit(self.rot_grid_surface, (WIDTH/2 - self.rot_grid_surface.get_width() / 2, HEIGHT / 2 - self.rot_grid_surface.get_height() / 2))
 
         self.plane_surface.fill((0, 0, 0, 0))
-        for plane in ARTSS.plane_queue:
+        for plane in plane_queue:
+            plane_img = self.plane_imgs[plane.get_plane_type().value - 1] 
             facing_angle = plane.get_facing_direction().value
             mx, my = plane.get_map_pos()
             scale_factor = ((plane.altitude / DEPARTED_ALTITUDE) * (MAX_PLANE_SCALE - 1)) + 1 
-            size = self.plane_img.get_size()
-            width = size[0] * scale_factor 
-            height = size[1] * scale_factor 
-            x_offset = width - size[0] 
-            y_offset = height - size[1] 
-            x, y = (mx * GRID_SPACE_SIZE - (x_offset // 2), my * GRID_SPACE_SIZE - (y_offset // 2)) 
-            plane_img_rot = pygame.transform.rotate(self.plane_img, facing_angle)
+            width = height = GRID_SPACE_SIZE * scale_factor
+            offset = (width - GRID_SPACE_SIZE) // 2
+            x, y = (mx * GRID_SPACE_SIZE - offset, my * GRID_SPACE_SIZE - offset) 
+            plane_img_rot = pygame.transform.rotate(plane_img, facing_angle)
             plane_img_scaled = pygame.transform.scale(plane_img_rot, (width, height))
             self.plane_surface.blit(plane_img_scaled, (x, y))
             
         ps = pygame.transform.rotate(self.plane_surface, 25) 
         screen.blit(ps, (WIDTH/2 - ps.get_width() / 2, HEIGHT/2 - ps.get_height() / 2))
+
+        CENTER_X = 100
+        CENTER_Y = 100
+        pygame.draw.rect(screen, (0, 0, 0), (40, 100, 120, 104), border_radius=10)
+        pygame.draw.rect(screen, (30, 30, 30), (44, 100, 112, 100), border_radius=10)
+        pygame.draw.circle(screen, (0, 0, 0), (CENTER_X, CENTER_Y), 67) 
+        pygame.draw.circle(screen, (100, 100, 100), (CENTER_X, CENTER_Y), 63) 
+        pygame.draw.circle(screen, (0, 0, 0), (CENTER_X, CENTER_Y), 38) 
+        pygame.draw.circle(screen, (30, 30, 30), (CENTER_X, CENTER_Y), 34) 
+        pygame.draw.circle(screen, (0, 0, 0), (CENTER_X, CENTER_Y), 10) 
+        draw_text_with_outline(screen, "N", self.smaller_font, (92, 40), (150, 140, 140), (0, 0, 0), 2, False)
+        draw_text_with_outline(screen, "S", self.smaller_font, (94, 142), (150, 140, 140), (0, 0, 0), 2, False)
+        draw_text_with_outline(screen, "E", self.smaller_font, (143, 92), (150, 140, 140), (0, 0, 0), 2, False)
+        draw_text_with_outline(screen, "W", self.smaller_font, (40, 92), (150, 140, 140), (0, 0, 0), 2, False)
+
+        wind = get_wind_info()
+        wind_arrow_size = self.wind_arrow.get_size()
+        scale_factor = ((wind[1] - MIN_WIND_SPEED) / (MAX_WIND_SPEED - MIN_WIND_SPEED)) + 0.5
+        width = wind_arrow_size[0] * scale_factor 
+        height = wind_arrow_size[1] 
+        wind_arrow_scaled = pygame.transform.scale(self.wind_arrow, (width, height)) 
+        wind_arrow_rot = pygame.transform.rotate(wind_arrow_scaled, wind[0]) 
+        rot_rect = wind_arrow_rot.get_rect()
+        rot_rect.center = (CENTER_X, CENTER_Y)
+        screen.blit(wind_arrow_rot, rot_rect.topleft)
+
+        draw_text_with_outline(screen, f"{wind[1]} knots", self.font, (100, 182), WIND_ARROW_COLOR, (0, 0, 0), 2, True)
 
         pygame.display.flip()
        

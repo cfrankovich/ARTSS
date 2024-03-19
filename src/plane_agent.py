@@ -1,5 +1,5 @@
 import pygame
-from utils.flight_data_handler import generate_flight_data, FlightStatus 
+from utils.flight_data_handler import generate_flight_data, FlightStatus, generate_plane_info 
 from utils.coms import CommunicationType 
 from utils.map_handler import gates, get_facing_direction_from_gate, Direction, get_adjacent_runway_pos, get_runway_path
 from utils.logger import logger
@@ -7,11 +7,26 @@ from utils.logger import logger
 AIRPORT = "DAB"
 DEPARTURE_FREQUENCY = "125.800 MHz"
 DEPARTED_ALTITUDE = 1000 # ft
+gates_in_use = []
+plane_queue = [] 
+
+
+def get_plane_queue():
+    return plane_queue
+
+
+def init_plane_queue(num_planes):
+    global plane_queue
+    for _ in range(num_planes):
+        plane_queue.append(Plane())
+
 
 class Plane(pygame.sprite.Sprite):
     def __init__(self):
         super().__init__() 
-        self.flight_data = generate_flight_data() 
+        self.flight_data = generate_flight_data(gates_in_use) 
+        self.plane_info = generate_plane_info() 
+        gates_in_use.append(self.flight_data["gate"])
         self.map_x, self.map_y = self.get_initial_map_pos() 
         self.facing = get_facing_direction_from_gate(self.map_x, self.map_y) 
         self.facing = Direction((self.facing.value + 180) % 360) # opposite direction angle 
@@ -39,6 +54,7 @@ class Plane(pygame.sprite.Sprite):
             self.flight_data["runway"] = runway_number
             taxiways = self.extract_taxiways(com[0])
             self.send_com(atc, (f"Taxi to runway {runway_number}, via taxiways {taxiways}, hold short of runway {runway_number}, {fn}.", CommunicationType.READ_BACK))
+            gates_in_use.remove(self.flight_data["gate"])
             self.set_status(FlightStatus.TAXIING_TO_RUNWAY)
         elif ct == CommunicationType.LINE_UP:
             runway_number = self.flight_data["runway"] 
@@ -76,32 +92,19 @@ class Plane(pygame.sprite.Sprite):
         logger.log_flight_com(fn, com[0])
         atc.receive_com(com, self)
 
-    def update(self, atc):
+    def update(self):
         status = self.flight_data["status"]
         if status == FlightStatus.PUSHBACK_IN_PROGRESS:
             self.facing = Direction((self.facing.value + 180) % 360)
             self.set_status(FlightStatus.WAITING_FOR_TAXI_CLEARANCE)
-        elif status == FlightStatus.TAXIING_TO_RUNWAY: 
+        elif status.value >= 5 and status.value <= 12: # taxiing to departure
+            if status == FlightStatus.CLIMBING:
+                self.altitude += self.d_altitude
             try:
                 self.move_on_path()
             except:
-                self.set_status(FlightStatus.HOLDING_SHORT)
-        elif status == FlightStatus.LINING_UP:
-            try:
-                self.move_on_path()
-            except:
-                self.set_status(FlightStatus.WAITING_FOR_TAKEOFF_CLEARANCE)
-        elif status == FlightStatus.TAKING_OFF:
-            try:
-                self.move_on_path()
-            except:
-                self.set_status(FlightStatus.AIRBORNE)
-        elif status == FlightStatus.CLIMBING:
-            self.altitude += self.d_altitude
-            try:
-                self.move_on_path()
-            except:
-                self.set_status(FlightStatus.DEPARTED)
+                new_status = self.get_next_status(status)
+                self.set_status(new_status)
 
     def get_direction_of_next_node(self, node):
         dx = node[0] - self.map_x
@@ -145,3 +148,11 @@ class Plane(pygame.sprite.Sprite):
         self.map_y = node[1]
         self.facing = self.get_direction_of_next_node(self.current_path[0])
         
+    def get_next_status(self, status):
+        try:
+            return FlightStatus(status.value + 1) 
+        except:
+            return FlightStatus((status.value + 1) * -1)
+
+    def get_plane_type(self):
+        return self.plane_info["type"]
