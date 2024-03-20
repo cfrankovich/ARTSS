@@ -70,7 +70,7 @@ class Simulation():
 
         self.plane_surface.fill((0, 0, 0, 0))
         for plane in plane_queue:
-            plane_img = self.plane_imgs[plane.get_plane_type().value - 1] 
+            plane_img = self.plane_imgs[plane.get_aircraft_type().value - 1] 
             facing_angle = plane.get_facing_direction().value
             mx, my = plane.get_map_pos()
             scale_factor = ((plane.altitude / DEPARTED_ALTITUDE) * (MAX_PLANE_SCALE - 1)) + 1 

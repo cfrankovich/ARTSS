@@ -1,6 +1,6 @@
 from utils.coms import CommunicationType 
 from utils.logger import logger
-from utils.map_handler import get_map, TileType, temp_add_fill
+from utils.map_handler import get_map, TileType, temp_add_fill, get_closest_runway
 from .plane_agent import DEPARTED_ALTITUDE, get_plane_queue
 
 AIRPORT = "DAB"
@@ -59,42 +59,11 @@ class Agent():
         return None 
 
     def get_next_runway_path(self, mx, my):
-        closest_runway_path = self.get_closest_runway(mx, my) 
+        closest_runway_path = get_closest_runway(mx, my) 
         runway_loc = closest_runway_path[-1]
         temp_add_fill(runway_loc)
         map = get_map()
         return closest_runway_path 
-
-    # breadth first search 
-    def get_closest_runway(self, mx, my):
-        map = get_map()
-        queue = [(mx, my)]
-        visited = [(mx, my)]
-        parent_map = {}
-
-        while queue:
-            current_node = queue.pop(0) 
-
-            if map[current_node[0]][current_node[1]].type == TileType.RUNWAY:
-                path = []
-                while current_node != (mx, my):
-                    path.append(current_node)
-                    current_node = parent_map[current_node]
-                path.reverse()
-                return path
-
-            for dx, dy in [(0, -1), (0, 1), (-1, 0), (1, 0)]:
-                next_node = (current_node[0] + dx, current_node[1] + dy)
-                node = map[next_node[0]][next_node[1]]
-                type_val = node.type.value
-                info = node.info 
-
-                if next_node not in visited and type_val % 3 != 0: # avoid nothing (0) and gate (3) tile types 
-                    visited.append(next_node)
-                    queue.append(next_node)
-                    parent_map[next_node] = current_node
-
-        return None
 
     def is_runway_clear_for_lineup(self, runway_number):
         pq = get_plane_queue()

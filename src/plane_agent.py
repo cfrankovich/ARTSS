@@ -1,5 +1,5 @@
 import pygame
-from utils.flight_data_handler import generate_flight_data, FlightStatus, generate_plane_info 
+from utils.flight_data_handler import generate_flight_data, FlightStatus, generate_aircraft_info 
 from utils.coms import CommunicationType 
 from utils.map_handler import gates, get_facing_direction_from_gate, Direction, get_adjacent_runway_pos, get_runway_path
 from utils.logger import logger
@@ -25,7 +25,7 @@ class Plane(pygame.sprite.Sprite):
     def __init__(self):
         super().__init__() 
         self.flight_data = generate_flight_data(gates_in_use) 
-        self.plane_info = generate_plane_info() 
+        self.aircraft_info = generate_aircraft_info() 
         gates_in_use.append(self.flight_data["gate"])
         self.map_x, self.map_y = self.get_initial_map_pos() 
         self.facing = get_facing_direction_from_gate(self.map_x, self.map_y) 
@@ -154,5 +154,8 @@ class Plane(pygame.sprite.Sprite):
         except:
             return FlightStatus((status.value + 1) * -1)
 
-    def get_plane_type(self):
-        return self.plane_info["type"]
+    def get_aircraft_type(self):
+        return self.aircraft_info["type"]
+
+    def get_pos(self):
+        return (self.map_x, self.map_y)

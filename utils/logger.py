@@ -3,10 +3,19 @@ import os
 
 
 class ARTSSClock():
-    time = 0 
-
+    TICKS_PER_MINUTE = 1
+    start_time = "0000" 
+    ticks = 0 
+    
     def tick():
-        ARTSSClock.time += 1
+        ARTSSClock.ticks += 1
+
+    def get_fancy_time():
+        tick_minutes = ARTSSClock.ticks / ARTSSClock.TICKS_PER_MINUTE 
+        minutes = int(ARTSSClock.start_time[2:]) + tick_minutes
+        hours = (int(ARTSSClock.start_time[:2]) + (minutes // 60)) % 24 
+        minutes %= 60
+        return f"{int(hours)}:{int(minutes)}" 
 
 
 class Logger():
@@ -20,14 +29,14 @@ class Logger():
         self.flight_log_files = {}
 
     def log_atc_com(self, com):
-        self.atc_log_file.write(f"[{ARTSSClock.time}] {com}\n")
+        self.atc_log_file.write(f"[{ARTSSClock.get_fancy_time()}] {com}\n")
 
     def log_flight_com(self, flight_num, com):
         dir = f"{self.flight_dir}/{flight_num}.log" 
         if not os.path.exists(dir):
             new_flight_log_file = open(dir, "a") 
             self.flight_log_files[flight_num] = new_flight_log_file 
-        self.flight_log_files[flight_num].write(f"[{ARTSSClock.time}] {com}\n")
+        self.flight_log_files[flight_num].write(f"[{ARTSSClock.get_fancy_time()}] {com}\n")
 
     def close_flight_log(self, flight_num):
         self.flight_log_files[flight_num].close()

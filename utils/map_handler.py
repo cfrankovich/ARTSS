@@ -158,20 +158,64 @@ def get_runway_path(x, y):
 
 def find_taxiway_path(plane, queue, winds):
     # TODO:
-    # get the average wind speed during the predicted time range from takeoff to departed 
-    # use this wind speed, max crosswind limit, required runway space, and distance to suggest a runway  
+    # get the average crosswind during the predicted time range from takeoff to departed 
+    # use this crosswind, max crosswind limit, required runway space, and distance to suggest a runway  
     # determine the shortest path to this runway while evaluating different entrance possibilities
     # evaluate the path comparing each step or node to other routes during the time
-
+    #
     # INFO:
     # a route can be shared no need to try and go around a plane going the same place
     # the best route is one where it is not blocking the terminal entrance or gates if
     # theres potentially a long queue, shortest path to runway, not crossing runways, not
     # intersecting with other routes that have different destinations, etc. 
-
+    #
     # TODO: 
     # experiment by generating all possibilities and then draw the lines for the possibilities
     # "grade" the possibilities and color them accordingly and take a screenshot would be good
     # to have in presentation 
+    #
 
+    min_runway_required = plane.aircraft_info["required_runway_space"]
+    routes = get_all_routes_no_wind(plane.get_pos(), min_runway_required)
     pass
+
+
+def get_all_routes_no_wind(pos, min_runway_required):
+    pass
+
+
+# TODO: this is used in atc_agent rn  
+def get_closest_runway(mx, my):
+    pass
+
+
+# breadth first search 
+def get_all_runway_paths(mx, my):
+    map = get_map()
+    queue = [(mx, my)]
+    visited = [(mx, my)]
+    parent_map = {}
+
+    while queue:
+        current_node = queue.pop(0) 
+
+        if map[current_node[0]][current_node[1]].type == TileType.RUNWAY:
+            path = []
+            while current_node != (mx, my):
+                path.append(current_node)
+                current_node = parent_map[current_node]
+            path.reverse()
+            return path
+
+        for dx, dy in [(0, -1), (0, 1), (-1, 0), (1, 0)]:
+            next_node = (current_node[0] + dx, current_node[1] + dy)
+            node = map[next_node[0]][next_node[1]]
+            type_val = node.type.value
+            info = node.info 
+
+            if next_node not in visited and type_val % 3 != 0: # avoid nothing (0) and gate (3) tile types 
+                visited.append(next_node)
+                queue.append(next_node)
+                parent_map[next_node] = current_node
+
+    return None
