@@ -5,6 +5,11 @@ MAP_PATH = "map.csv"
 gates = {} 
 map = [] 
 runways = {}
+debug_paths = []
+
+
+def get_node_type_from_pos(pos):
+    return map[pos[0]][pos[1]].type 
 
 
 def get_map():
@@ -177,20 +182,16 @@ def find_taxiway_path(plane, queue, winds):
 
     min_runway_required = plane.aircraft_info["required_runway_space"]
     routes = get_all_routes_no_wind(plane.get_pos(), min_runway_required)
-    pass
+    return routes 
 
 
 def get_all_routes_no_wind(pos, min_runway_required):
-    pass
-
-
-# TODO: this is used in atc_agent rn  
-def get_closest_runway(mx, my):
-    pass
+    return get_all_runway_paths(pos[0], pos[1])
 
 
 # breadth first search 
 def get_all_runway_paths(mx, my):
+    paths = []
     map = get_map()
     queue = [(mx, my)]
     visited = [(mx, my)]
@@ -198,24 +199,34 @@ def get_all_runway_paths(mx, my):
 
     while queue:
         current_node = queue.pop(0) 
+        runway_flag = False 
 
-        if map[current_node[0]][current_node[1]].type == TileType.RUNWAY:
+        if map[current_node[0]][current_node[1]].type == TileType.RUNWAY: 
+            runway_flag = True
             path = []
-            while current_node != (mx, my):
-                path.append(current_node)
-                current_node = parent_map[current_node]
+            temp_node = current_node
+            while temp_node != (mx, my):
+                path.append(temp_node)
+                temp_node = parent_map[temp_node]
             path.reverse()
-            return path
+            paths.append(path)
 
         for dx, dy in [(0, -1), (0, 1), (-1, 0), (1, 0)]:
             next_node = (current_node[0] + dx, current_node[1] + dy)
+            next_node_runway_flag = map[next_node[0]][next_node[1]].type == TileType.RUNWAY
+            if next_node_runway_flag and runway_flag: 
+                continue
             node = map[next_node[0]][next_node[1]]
             type_val = node.type.value
-            info = node.info 
 
             if next_node not in visited and type_val % 3 != 0: # avoid nothing (0) and gate (3) tile types 
                 visited.append(next_node)
                 queue.append(next_node)
                 parent_map[next_node] = current_node
 
-    return None
+    return paths 
+
+
+def debug_get_paths():
+    global debug_paths
+    return debug_paths

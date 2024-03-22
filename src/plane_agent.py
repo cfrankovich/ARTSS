@@ -33,6 +33,13 @@ class Plane(pygame.sprite.Sprite):
         self.current_path = [] 
         self.d_altitude = 1
         self.altitude = 0
+        self.debug_paths = []
+
+    def get_debug_paths(self):
+        return self.debug_paths
+
+    def set_debug_paths(self, paths):
+        self.debug_paths = paths
 
     def get_map_pos(self):
         return (self.map_x, self.map_y)
@@ -82,6 +89,7 @@ class Plane(pygame.sprite.Sprite):
             com = (f"{AIRPORT} Ground, {fn}, at gate {gate}, ready for pushback.", CommunicationType.PUSHBACK_CLEARANCE)
         elif status == FlightStatus.WAITING_FOR_TAXI_CLEARANCE:
             com = (f"{AIRPORT} Ground, {fn}, ready to taxi.", CommunicationType.TAXI_CLEARANCE)
+            self.flight_data["status"] = FlightStatus.AT_GATE
         elif status == FlightStatus.HOLDING_SHORT:
             runway = self.flight_data["runway"]
             com = (f"Holding short of runway {runway}, {fn}.", CommunicationType.HOLDING_SHORT) 

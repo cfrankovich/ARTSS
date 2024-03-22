@@ -7,7 +7,7 @@ from utils.coms import CommunicationType
 import random
 import numpy as np
 
-STARTING_PLANE_COUNT = 5
+STARTING_PLANE_COUNT = 3
 MAX_WIND_SPEED = 25
 MIN_WIND_SPEED = 5
 
@@ -43,6 +43,10 @@ def init_winds(samples):
 
 def get_wind_info():
     return (wind_direction, wind_speed)
+
+
+def get_winds():
+    return winds
 
 
 class ARTSS():

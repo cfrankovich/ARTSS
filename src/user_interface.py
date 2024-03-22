@@ -2,7 +2,7 @@ import pygame
 import ast
 from utils.states import State, Event 
 from src.sim import get_wind_info, MIN_WIND_SPEED, MAX_WIND_SPEED
-from utils.map_handler import TileType, get_map 
+from utils.map_handler import TileType, get_map
 from .plane_agent import DEPARTED_ALTITUDE, plane_queue 
 
 FPS = 1 
@@ -11,6 +11,36 @@ HEIGHT = 720
 GRID_SPACE_SIZE = 20
 MAX_PLANE_SCALE = 4
 WIND_ARROW_COLOR = (255, 0, 85)
+
+
+def colorize_image(image, new_color):
+    colored_image = pygame.Surface(image.get_size(), pygame.SRCALPHA)
+    colored_image.fill((0, 0, 0, 0)) 
+
+    for x in range(image.get_width()):
+        for y in range(image.get_height()):
+            pixel = image.get_at((x, y))
+            if pixel[3] > 0:
+                colored_image.set_at((x, y), new_color + (pixel[3],))
+
+    return colored_image
+
+
+def get_rainbow_color(index):
+    rainbow_colors = [
+        (255, 0, 0),    # Red
+        (0, 0, 255),    # Blue
+        (0, 255, 0),    # Green
+    ]
+    return rainbow_colors[index % len(rainbow_colors)]
+
+
+def to_screen_xy(node):
+    return (node[0] * GRID_SPACE_SIZE, node[1] * GRID_SPACE_SIZE) 
+
+
+def get_midpoint(a, b):
+    return (((a[0] + b[0]) / 2), ((a[1] + b[1]) / 2))
 
 
 def draw_text_with_outline(surface, text, font, pos, text_color, outline_color, outline_width, center):
@@ -69,8 +99,10 @@ class Simulation():
         #screen.blit(self.rot_grid_surface, (WIDTH/2 - self.rot_grid_surface.get_width() / 2, HEIGHT / 2 - self.rot_grid_surface.get_height() / 2))
 
         self.plane_surface.fill((0, 0, 0, 0))
-        for plane in plane_queue:
+        for n, plane in enumerate(plane_queue):
+            color = get_rainbow_color(n) 
             plane_img = self.plane_imgs[plane.get_aircraft_type().value - 1] 
+            plane_img = colorize_image(plane_img, color)
             facing_angle = plane.get_facing_direction().value
             mx, my = plane.get_map_pos()
             scale_factor = ((plane.altitude / DEPARTED_ALTITUDE) * (MAX_PLANE_SCALE - 1)) + 1 
@@ -110,6 +142,45 @@ class Simulation():
         screen.blit(wind_arrow_rot, rot_rect.topleft)
 
         draw_text_with_outline(screen, f"{wind[1]} knots", self.font, (100, 182), WIND_ARROW_COLOR, (0, 0, 0), 2, True)
+
+        # draw paths 
+        half_grid_space_size = GRID_SPACE_SIZE / 2
+        path_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        been_drawn = []
+        line_width = 2
+        for n, plane in enumerate(plane_queue):
+            paths = plane.get_debug_paths()
+            temp_drawn = []
+            color = get_rainbow_color(n)
+            if paths is None: 
+                continue
+            for path in paths:
+                prev = plane.get_map_pos()
+                for i, node in enumerate(path):
+                    top_left = (node[0] * GRID_SPACE_SIZE, node[1] * GRID_SPACE_SIZE) 
+                    center = (top_left[0] + half_grid_space_size, top_left[1] + half_grid_space_size) 
+
+                    start = get_midpoint(to_screen_xy(prev), center) 
+                    prev = node
+                    try:
+                        next = path[i + 1] 
+                    except:
+                        continue
+                    end = get_midpoint(to_screen_xy(next), center)
+
+                    new_start = start
+                    new_end = end
+                    if (start, end) in been_drawn:
+                        dup_offset = line_width * been_drawn.count((start, end))
+                        new_start = (start[0] + dup_offset, start[1] + dup_offset) 
+                        new_end = (end[0] + dup_offset, end[1] + dup_offset) 
+                    if (start, end) not in temp_drawn:
+                        temp_drawn.append((start, end))
+                    pygame.draw.line(path_surface, color, new_start, new_end, line_width)
+            been_drawn.extend(temp_drawn) 
+
+        rot_path_surface = pygame.transform.rotate(path_surface, 25)
+        screen.blit(rot_path_surface, (WIDTH/2 - rot_path_surface.get_width() / 2, HEIGHT / 2 - rot_path_surface.get_height() / 2))
 
         pygame.display.flip()
        

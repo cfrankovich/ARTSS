@@ -1,6 +1,6 @@
 from utils.coms import CommunicationType 
 from utils.logger import logger
-from utils.map_handler import get_map, TileType, temp_add_fill, get_closest_runway
+from utils.map_handler import get_map, TileType, temp_add_fill, find_taxiway_path
 from .plane_agent import DEPARTED_ALTITUDE, get_plane_queue
 
 AIRPORT = "DAB"
@@ -27,6 +27,7 @@ class Agent():
         if ct == CommunicationType.PUSHBACK_CLEARANCE:
             return (f"{fn}, {AIRPORT} Ground, cleared for pushback and engine start, advise ready to taxi.", CommunicationType.PUSHBACK_CLEARANCE)
         if ct == CommunicationType.TAXI_CLEARANCE:
+            """
             runway_path = self.get_next_runway_path(plane.map_x, plane.map_y)
             runway_node = runway_path[-1]
             map = get_map()
@@ -40,10 +41,13 @@ class Agent():
             taxiways = ', '.join(taxiways)
 
             plane.current_path = runway_path[:-1] # exclude runway 
+            """
 
-            #taxiway_path = find_taxiway_path(plane, get_plane_queue())
+            taxiway_path = find_taxiway_path(plane, get_plane_queue(), None)
+            plane.set_debug_paths(taxiway_path) 
 
-            return (f"{fn}, taxi to runway {runway_number}, via taxiways {taxiways}, hold short of runway {runway_number}.", CommunicationType.TAXI_CLEARANCE)
+            #return (f"{fn}, taxi to runway {runway_number}, via taxiways {taxiways}, hold short of runway {runway_number}.", CommunicationType.TAXI_CLEARANCE)
+            return (f"", CommunicationType.NONE)
         if ct == CommunicationType.HOLDING_SHORT:
             runway_number = plane.flight_data["runway"] 
             clear = self.is_runway_clear_for_lineup(runway_number)
