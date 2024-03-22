@@ -76,18 +76,42 @@ class Simulation():
         screen.blit(self.airport_surface, (self.ui.screen_width/3 + 5, 80) )
 
         screen.blit(self.logout_text, self.logout_widget)
-        pygame.draw.rect(screen, "Blue", self.logoutbox, 2, 2)
+        pygame.draw.rect(screen, "White", self.logoutbox, 3, 2)
         screen.blit(self.login_text, self.login_widget)
-        pygame.draw.rect(screen, "Green", self.loginbox, 2, 2)
+        pygame.draw.rect(screen, "White", self.loginbox, 3, 2)
 
         #test text
-        text = "This is some random test text to test the text wrapping ability of text for testing"
+        text = "This is some random test text to test the text wrapping ability of text for testing. The more the test text, the better the test of the text wrapping ability."
         moretext = "Extra text for testing because testing text wrapping is important"
+        sometext = "Some more testing text"
         othertext = "More testing"
         message_font = pygame.font.Font(None, 25)
-        last_y = self.draw_message_text(text, message_font, "Blue", self.logoutbox.centerx, self.logoutbox.topleft[1], screen, self.logoutbox.width) + 15
-        self.draw_message_text(moretext, message_font, "Blue", self.logoutbox.centerx, last_y, screen,self.logoutbox.width)
-        self.draw_message_text(othertext,message_font, "Green", self.loginbox.centerx, self.loginbox.topleft[1], screen, self.loginbox.width)
+
+        current_y = self.logoutbox.topleft[1]
+        last_y = self.draw_message_text(text, message_font, "Blue", self.logoutbox.centerx, current_y, screen, self.logoutbox.width - 3)
+        _, fh = pygame.font.Font.size(message_font, text)
+        dif_y = last_y + fh - current_y
+        pygame.draw.rect(screen, "Blue", pygame.Rect((self.logoutbox.topleft[0], current_y), (self.logoutbox.width, dif_y)), 1, 2)
+        current_y = last_y + fh
+
+        last_y = self.draw_message_text(moretext, message_font, "Blue", self.logoutbox.centerx, current_y, screen,self.logoutbox.width - 3)
+        _, fh = pygame.font.Font.size(message_font, moretext)
+        dif_y = last_y + fh - current_y
+        pygame.draw.rect(screen, "Blue", pygame.Rect((self.logoutbox.topleft[0], current_y), (self.logoutbox.width, dif_y)), 1, 2)
+        current_y = last_y + fh
+
+        last_y = self.draw_message_text(sometext, message_font, "Blue", self.logoutbox.centerx, current_y, screen,self.logoutbox.width - 3)
+        _, fh = pygame.font.Font.size(message_font, sometext)
+        dif_y = last_y + fh - current_y
+        pygame.draw.rect(screen, "Blue", pygame.Rect((self.logoutbox.topleft[0], current_y), (self.logoutbox.width, dif_y)), 1, 2)
+        current_y = last_y + fh
+
+        current_y = self.loginbox.topleft[1]
+        last_y = self.draw_message_text(othertext,message_font, "Green", self.logoutbox.centerx, current_y, screen, self.loginbox.width - 3)
+        _, fh = pygame.font.Font.size(message_font, othertext)
+        dif_y = last_y + fh - current_y
+        pygame.draw.rect(screen, "Green", pygame.Rect((self.logoutbox.topleft[0], current_y), (self.logoutbox.width, dif_y)), 1, 2)
+        current_y = last_y + fh
 
         testplane = self.testplane
         simbox = self.simbox
