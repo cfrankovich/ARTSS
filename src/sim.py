@@ -4,16 +4,17 @@ from utils.logger import ARTSSClock
 from .plane_agent import init_plane_queue, plane_queue 
 from utils.flight_data_handler import FlightStatus
 from utils.coms import CommunicationType
-from utils.map_handler import init_winds, adjust_wind
+from utils.map_handler import init_winds, adjust_wind, debug_init_winds
 
-STARTING_PLANE_COUNT = 1
+STARTING_PLANE_COUNT = 2
 
 
 class ARTSS():
     def __init__(self):
         self.atc_agent = Agent()
         init_plane_queue(STARTING_PLANE_COUNT)
-        init_winds(100)
+        init_winds(300)
+        #debug_init_winds(300)
 
     def tick(self):
         ARTSSClock.tick()

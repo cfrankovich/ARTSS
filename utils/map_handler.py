@@ -2,6 +2,7 @@ from enum import Enum
 import random
 import numpy as np
 import math 
+from collections import Counter 
 
 MAP_PATH = "map.csv"
 MAX_WIND_SPEED = 25
@@ -14,6 +15,8 @@ debug_paths = []
 winds = []
 wind_direction = random.randrange(0, 360) # deg 
 wind_speed = random.randrange(MIN_WIND_SPEED, MAX_WIND_SPEED + 1) # knots 
+#wind_direction = 70 
+#wind_speed = 20 
 winds.append((wind_direction, wind_speed))
 
 
@@ -34,17 +37,24 @@ def adjust_wind():
     wind_direction = new_wind[0]
     wind_speed = new_wind[1]
 
-    dir = int(np.random.normal(winds[-1][0], 8)) % 360 
-    speed = int(np.random.normal(winds[-1][1], 4))
+    dir = int(np.random.normal(winds[-1][0], 7)) % 360 
+    speed = int(np.random.normal(winds[-1][1], 3))
     speed = max(MIN_WIND_SPEED, min(MAX_WIND_SPEED, speed))
     winds.append((dir, speed))
+
+
+def debug_init_winds(samples):
+    global winds
+    global wind_direction
+    global wind_speed
+    winds = [(wind_direction, wind_speed) for i in range(samples)]
 
 
 def init_winds(samples):
     global winds
     for i in range(1, samples):
-        dir = int(np.random.normal(winds[i-1][0], 8)) % 360 
-        speed = int(np.random.normal(winds[i-1][1], 4))
+        dir = int(np.random.normal(winds[i-1][0], 7)) % 360 
+        speed = int(np.random.normal(winds[i-1][1], 3))
         speed = max(MIN_WIND_SPEED, min(MAX_WIND_SPEED, speed))
         winds.append((dir, speed))
 
@@ -107,7 +117,7 @@ class Tile():
 def get_random_gate(gates_in_use, flight_num):
     gate = random.choice(list(gates.items()))[0]
     char_to_check = "A" if flight_num[:2] == "ER" else "B" # gates B-XX are exclusive to ERU flights 
-    while gate in gates_in_use and gate[0] == char_to_check:
+    while gate in gates_in_use or gate[0] == char_to_check:
         gate = random.choice(list(gates.items()))[0]
     return gate
 
@@ -206,8 +216,21 @@ def find_taxiway_path(plane, queue):
     routes = get_all_routes_no_wind(plane.get_pos(), min_runway_required)
     crosswinds = get_crosswinds(plane_ticks_per_tile, routes)
     grades = grade_routes(plane, routes, crosswinds, queue) 
-    lowest_grade = min(grades)
+    lowest_grade = min(grades) # TODO: occasional bug where this is empty
+    print(routes[grades.index(lowest_grade)]) 
     return routes[grades.index(lowest_grade)] 
+    #plane.debug_set_best_grade_path(routes[grades.index(lowest_grade)])
+    #return routes
+
+
+def calculate_crosswind(runway_angle_deg, wind_angle_deg, wind_speed):
+    wind_direction_rad = math.radians(wind_angle_deg)
+    runway_direction_rad = math.radians(runway_angle_deg)
+    
+    angle_diff_rad = wind_direction_rad - runway_direction_rad
+    angle_diff_rad = (angle_diff_rad + math.pi) % (2 * math.pi) - math.pi
+    
+    return abs(wind_speed * math.sin(angle_diff_rad))
 
 
 def get_crosswinds(ticks_per_tile, routes):
@@ -226,7 +249,7 @@ def get_crosswinds(ticks_per_tile, routes):
             wind = winds[wind_index] 
             wind_dir = wind[0]
             wind_speed = wind[1]
-            cw = wind_speed / (math.cos(abs(180 - abs(runway_angle - wind_dir))))
+            cw = calculate_crosswind(runway_angle, wind_dir, wind_speed) 
             avg_crosswind_arr.append(cw)
         
         avg_crosswind = sum(avg_crosswind_arr) / len(avg_crosswind_arr)
@@ -245,7 +268,7 @@ def get_all_routes_no_wind(pos, min_runway_required):
             routes.append(path + runway_paths[0][:min_runway_required])
         if len(runway_paths[1]) > min_runway_required:
             routes.append(path + runway_paths[1][:min_runway_required])
-    return routes[:-min_runway_required]
+    return routes
 
 
 def get_all_runway_paths(mx, my):
@@ -296,10 +319,34 @@ def get_node_type(pos):
 
 
 def get_runway_angle_from_route(route):
-    for node in route: 
-        if get_node_type(node) is TileType.RUNWAY:
-            return int(map[node[0]][node[1]].info[:2]) * 10 
-    return None
+    runway_nodes = [node for node in route if get_node_type(node) is TileType.RUNWAY]
+    if len(runway_nodes) < 2:
+        return None
+
+    x1 = runway_nodes[0][0] 
+    y1 = runway_nodes[0][1] 
+    x2 = runway_nodes[-1][0]
+    y2 = runway_nodes[-1][1]
+    dx = x2 - x1
+    dy = y2 - y1
+
+    info = map[runway_nodes[-1][0]][runway_nodes[-1][1]].info
+    first = int(info[:2]) * 10
+    second = int(info.split('/')[1][:2]) * 10
+
+    # N = 0, E = 90, S = 180, W = 270
+    if dx < 0 and dy == 0:
+        perfect_dir = 270 
+    elif dx > 0 and dy == 0:
+        perfect_dir = 90 
+    elif dx == 0 and dy > 0:
+        perfect_dir = 180
+    else:
+        perfect_dir = 360 
+
+    if abs(perfect_dir - first) < abs(perfect_dir - second):
+        return first 
+    return second
 
 
 def get_other_routes(current_plane, queue):
@@ -326,7 +373,7 @@ def grade_routes(plane, routes, crosswinds, queue):
     grades = [ grades[i] + intersections[i] for i in range(len(grades)) ]
 
     # distance (div by 3 for less of a penalty) 
-    grades = [ grades[i] + (len(route) / 3) for i, route in enumerate(routes)]
+    grades = [ grades[i] + (len(route) / 2) for i, route in enumerate(routes)]
 
     return grades 
 
@@ -345,14 +392,15 @@ def get_intersections(route, queue, plane):
         time = node_and_time[1]
 
         for other_route_and_speed in other_routes_with_speed: 
+            other_route = other_route_and_speed[1]
+            if other_route == []:
+                return 0 
+            other_speed = other_route_and_speed[0] 
             other_plane_landing = other_route[-1] is TileType.GATE
             other_runway_lineup_node = get_runway_lineup_node(other_route) 
 
             if other_plane_landing is False and runway_lineup_node == other_runway_lineup_node:
                 return -1 # taxiing to same location  
-
-            other_speed = other_route_and_speed[0] 
-            other_route = other_route_and_speed[1]
 
             for i, other_node in enumerate(other_route):
                 if node == other_node and time == other_speed * i:

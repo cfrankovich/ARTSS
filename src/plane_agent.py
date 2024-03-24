@@ -31,9 +31,17 @@ class Plane(pygame.sprite.Sprite):
         self.facing = get_facing_direction_from_gate(self.map_x, self.map_y) 
         self.facing = Direction((self.facing.value + 180) % 360) # opposite direction angle 
         self.current_path = [] 
+        self.runway_path = []
         self.d_altitude = 1
         self.altitude = 0
         self.debug_paths = []
+        self.debug_best_grade_path = []
+
+    def debug_set_best_grade_path(self, route):
+        self.debug_best_grade_path = route
+
+    def debug_get_best_grade_path(self):
+        return self.debug_best_grade_path
 
     def get_debug_paths(self):
         return self.debug_paths
@@ -70,7 +78,7 @@ class Plane(pygame.sprite.Sprite):
             self.send_com(atc, (f"Runway {runway_number}, lining up and waiting, {fn}.", CommunicationType.LINE_UP))
         elif ct == CommunicationType.TAKEOFF_CLEARANCE:
             runway_number = self.flight_data["runway"] 
-            self.current_path.extend(get_runway_paths(self.map_x, self.map_y)[0])
+            self.current_path.extend(self.runway_path)
             self.d_altitude = DEPARTED_ALTITUDE / len(self.current_path)
             self.set_status(FlightStatus.AIRBORNE)
             self.send_com(atc, (f"Runway {runway_number}, cleared for takeoff, {fn}.", CommunicationType.CONFIRM_TAKEOFF_CLEARANCE))
@@ -167,3 +175,6 @@ class Plane(pygame.sprite.Sprite):
 
     def get_pos(self):
         return (self.map_x, self.map_y)
+
+    def get_current_path(self):
+        return self.current_path

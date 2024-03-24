@@ -2,11 +2,11 @@ import pygame
 import ast
 from utils.states import State, Event 
 from utils.map_handler import TileType, get_map, get_node_type, get_wind_info, MIN_WIND_SPEED, MAX_WIND_SPEED
-from .plane_agent import DEPARTED_ALTITUDE, plane_queue 
+from .plane_agent import DEPARTED_ALTITUDE, plane_queue
 import math
 import time
 
-FPS = 10 
+FPS = 2 
 WIDTH = 1280
 HEIGHT = 720
 GRID_SPACE_SIZE = 20
@@ -130,6 +130,9 @@ class Simulation():
         self.font = pygame.font.Font(None, 34)
         self.smaller_font = pygame.font.Font(None, 30)
 
+        self.debug_flag = False
+        self.debug_path_num = -1
+
     def render(self):
         screen = self.ui.screen
         screen.fill((0, 0, 0))
@@ -177,7 +180,7 @@ class Simulation():
         width = wind_arrow_size[0] * scale_factor 
         height = wind_arrow_size[1] 
         wind_arrow_scaled = pygame.transform.scale(self.wind_arrow, (width, height)) 
-        wind_arrow_rot = pygame.transform.rotate(wind_arrow_scaled, wind[0]) 
+        wind_arrow_rot = pygame.transform.rotate(wind_arrow_scaled, 180 - wind[0]) 
         rot_rect = wind_arrow_rot.get_rect()
         rot_rect.center = (CENTER_X, CENTER_Y)
         screen.blit(wind_arrow_rot, rot_rect.topleft)
@@ -190,12 +193,13 @@ class Simulation():
         been_drawn = []
         line_width = 2
         for n, plane in enumerate(plane_queue):
-            paths = plane.get_debug_paths()
+            paths = [plane.get_current_path()]
+            if paths is []: 
+                continue
             temp_drawn = []
             color = get_rainbow_color(n)
-            if paths is None: 
-                continue
             for j, path in enumerate(paths):
+                print(path)
                 prev = plane.get_map_pos()
                 for i, node in enumerate(path):
                     top_left = (node[0] * GRID_SPACE_SIZE, node[1] * GRID_SPACE_SIZE) 
@@ -236,10 +240,17 @@ class Simulation():
         pygame.display.flip()
        
     def event_handler(self, pg_event, mouse_pos):
-        if pg_event.type == pygame.MOUSEBUTTONDOWN:
-            if self.return_button.collidepoint(mouse_pos):
-                self.ui.button_sound.play()
-                return Event.GOTO_MAIN_MENU
+        if pg_event.type == pygame.KEYUP:
+            try:
+                value = int(pygame.key.name(pg_event.key).title())
+            except:
+                value = -1 
+            if pg_event.key == pygame.K_RETURN:
+                self.debug_flag = not self.debug_flag
+            elif value >= 0 and value <= 9: 
+                self.debug_path_num = value 
+            elif pg_event.key == pygame.K_r:
+                self.debug_path_num = -1
         return Event.NONE
 
 

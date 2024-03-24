@@ -68,14 +68,14 @@ def generate_aircraft_info():
         return {
             "type" : aircraft_type, 
             "crosswind_limit" : 30, # knots
-            "required_runway_space" : 15, # num squares required to takeoff and land
+            "required_runway_space" : 20, # num squares required to takeoff and land
             "ticks_per_tile" : 3, # num clock cycles to cover a tile (speed kinda) 
         }
     elif aircraft_type == PlaneCategory.DEFAULT:
         return {
             "type" : aircraft_type, 
             "crosswind_limit" : 20, # knots
-            "required_runway_space" : 10, # num squares required to takeoff and land
+            "required_runway_space" : 15, # num squares required to takeoff and land
             "ticks_per_tile" : 2, # num clock cycles to cover a tile (speed kinda) 
         }
     # light plane 
