@@ -193,12 +193,17 @@ class Simulation():
         been_drawn = []
         line_width = 2
         for n, plane in enumerate(plane_queue):
-            paths = [plane.get_current_path()]
-            if paths is []: 
-                continue
+            if self.debug_flag:
+                paths = [plane.debug_best_grade_path] 
+            elif self.debug_path_num != -1:
+                paths = [plane.get_debug_paths()[self.debug_path_num]]
+            else:
+                paths = plane.get_debug_paths()
             temp_drawn = []
-            color = get_rainbow_color(n)
             for j, path in enumerate(paths):
+                if path == []:
+                    continue
+                color = plane.get_grade_color(j) 
                 prev = plane.get_map_pos()
                 for i, node in enumerate(path):
                     top_left = (node[0] * GRID_SPACE_SIZE, node[1] * GRID_SPACE_SIZE) 
@@ -246,9 +251,12 @@ class Simulation():
                 value = -1 
             if pg_event.key == pygame.K_RETURN:
                 self.debug_flag = not self.debug_flag
+                self.debug_path_num = -1
             elif value >= 0 and value <= 9: 
+                self.debug_flag = False
                 self.debug_path_num = value 
             elif pg_event.key == pygame.K_r:
+                self.debug_flag = False
                 self.debug_path_num = -1
         return Event.NONE
 
