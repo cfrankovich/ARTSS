@@ -13,10 +13,10 @@ map = []
 runways = {}
 debug_paths = []
 winds = []
-wind_direction = random.randrange(0, 360) # deg 
-wind_speed = random.randrange(MIN_WIND_SPEED, MAX_WIND_SPEED + 1) # knots 
-#wind_direction = 70 
-#wind_speed = 20 
+#wind_direction = random.randrange(0, 360) # deg 
+#wind_speed = random.randrange(MIN_WIND_SPEED, MAX_WIND_SPEED + 1) # knots 
+wind_direction = 0 
+wind_speed = 20 
 winds.append((wind_direction, wind_speed))
 
 
@@ -214,9 +214,10 @@ def find_taxiway_path(plane, queue):
     plane_ticks_per_tile = plane.aircraft_info["ticks_per_tile"]
     min_runway_required = plane.aircraft_info["required_runway_space"]
     routes = get_all_routes_no_wind(plane.get_pos(), min_runway_required)
-    crosswinds, headwinds = get_winds(plane_ticks_per_tile, routes)
-    routes, grades = grade_routes(plane, routes, crosswinds, headwinds, queue) 
+    crosswinds, headwinds, temp_rwa = get_winds(plane_ticks_per_tile, routes)
+    routes, grades = grade_routes(plane, routes, crosswinds, headwinds, queue, temp_rwa) 
     lowest_grade = min(grades) 
+    print(lowest_grade)
     plane.debug_set_grades(grades)
     #return routes[grades.index(lowest_grade)]
     plane.debug_set_best_grade_path(routes[grades.index(lowest_grade)])
@@ -247,12 +248,14 @@ def get_winds(ticks_per_tile, routes):
     global winds
     crosswinds = []
     headwinds = []
+    temp_rwa = []
 
     for route in routes:
         wind_index = 0
         avg_crosswind_arr = [] 
         avg_headwind_arr = [] 
         runway_angle = get_runway_angle_from_route(route)
+        temp_rwa.append(runway_angle)
         for node in route:
             wind_index += ticks_per_tile
             if get_node_type(node) is not TileType.RUNWAY: 
@@ -266,12 +269,12 @@ def get_winds(ticks_per_tile, routes):
             avg_crosswind_arr.append(cw)
             avg_headwind_arr.append(hw)
         
-        avg_crosswind = sum(avg_crosswind_arr) / len(avg_crosswind_arr)
-        avg_headwind = sum(avg_headwind_arr) / len(avg_headwind_arr)
+        avg_crosswind = sum(avg_crosswind_arr) // len(avg_crosswind_arr)
+        avg_headwind = sum(avg_headwind_arr) // len(avg_headwind_arr)
         crosswinds.append(avg_crosswind)
         headwinds.append(avg_headwind)
 
-    return crosswinds, headwinds 
+    return crosswinds, headwinds, temp_rwa 
 
 
 def get_all_routes_no_wind(pos, min_runway_required):
@@ -339,14 +342,14 @@ def get_runway_angle_from_route(route):
     if len(runway_nodes) < 2:
         return None
 
-    x1 = runway_nodes[-3][0] 
-    y1 = runway_nodes[-3][1] 
-    x2 = runway_nodes[-1][0]
-    y2 = runway_nodes[-1][1]
+    x1 = runway_nodes[-4][0] 
+    y1 = runway_nodes[-4][1] 
+    x2 = runway_nodes[-2][0]
+    y2 = runway_nodes[-2][1]
     dx = x2 - x1
     dy = y2 - y1
 
-    info = map[runway_nodes[-1][0]][runway_nodes[-1][1]].info
+    info = map[runway_nodes[-4][0]][runway_nodes[-4][1]].info
     first = int(info[:2]) * 10
     second = int(info.split('/')[1][:2]) * 10
 
@@ -369,7 +372,7 @@ def get_other_routes(current_plane, queue):
     return [plane.current_path for plane in queue if current_plane != plane]
 
 
-def grade_routes(plane, routes, crosswinds, headwinds, queue):
+def grade_routes(plane, routes, crosswinds, headwinds, queue, temp_angles):
     # lowest grade is best route
     grades = []
 
@@ -382,25 +385,20 @@ def grade_routes(plane, routes, crosswinds, headwinds, queue):
             headwinds.pop(i)
 
     # grade crosswinds (0 for least, len for max) 
-    print(crosswinds)
-    sorted_winds = sorted(crosswinds) 
-    grades = [sorted_winds.index(cw) for cw in crosswinds]
+    grades = [cw for cw in crosswinds]
 
     # grade headwinds 
-    print(headwinds)
-    sorted_winds = sorted(headwinds) 
-    grades = [(grades[i] + sorted_winds.index(hw)) * 2 for i, hw in enumerate(headwinds)]
+    grades = [(grades[i] + (hw * 2)) for hw in headwinds]
 
     # intersections  
     intersections = [get_intersections(route, queue, plane) for route in routes]
-    print(intersections)
     grades = [ grades[i] + intersections[i] for i in range(len(grades)) ]
 
     # distance (div for less of a penalty) 
     lengths = [len(route) for route in routes] 
-    print(lengths)
     grades = [ grades[i] + lengths[i] for i in range(len(lengths))]
-    print(grades)
+
+    pretty_print_data(routes, crosswinds, headwinds, intersections, lengths, grades, temp_angles)
 
     return routes, grades 
 
@@ -441,3 +439,8 @@ def get_runway_lineup_node(route):
         if get_node_type(node) is TileType.RUNWAY:
             return node
     return None
+
+def pretty_print_data(routes, cw, hw, inter, lengths, grades, temp_angles):
+    for i in range(len(routes)):
+        print(f"ROUTE #{i} :: ANG = {temp_angles[i]} :: CW = {cw[i]} :: HW = {hw[i]} :: INT = {inter[i]} :: LEN = {lengths[i]} :: G = {grades[i]}")
+

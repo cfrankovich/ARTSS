@@ -6,7 +6,7 @@ from .plane_agent import DEPARTED_ALTITUDE, plane_queue
 import math
 import time
 
-FPS = 2 
+FPS = 30 
 WIDTH = 1280
 HEIGHT = 720
 GRID_SPACE_SIZE = 20
@@ -203,7 +203,7 @@ class Simulation():
             for j, path in enumerate(paths):
                 if path == []:
                     continue
-                color = plane.get_grade_color(j) 
+                color = get_rainbow_color(j) 
                 prev = plane.get_map_pos()
                 for i, node in enumerate(path):
                     top_left = (node[0] * GRID_SPACE_SIZE, node[1] * GRID_SPACE_SIZE) 
@@ -255,6 +255,12 @@ class Simulation():
             elif value >= 0 and value <= 9: 
                 self.debug_flag = False
                 self.debug_path_num = value 
+            elif pg_event.key == pygame.K_i:
+                self.debug_flag = False
+                self.debug_path_num += 1 
+            elif pg_event.key == pygame.K_o:
+                self.debug_flag = False
+                self.debug_path_num -= 1 
             elif pg_event.key == pygame.K_r:
                 self.debug_flag = False
                 self.debug_path_num = -1
