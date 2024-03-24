@@ -6,7 +6,7 @@ from .plane_agent import DEPARTED_ALTITUDE, plane_queue
 import math
 import time
 
-FPS = 30 
+FPS = 1 
 WIDTH = 1280
 HEIGHT = 720
 GRID_SPACE_SIZE = 20
@@ -193,12 +193,15 @@ class Simulation():
         been_drawn = []
         line_width = 2
         for n, plane in enumerate(plane_queue):
+            """
             if self.debug_flag:
                 paths = [plane.debug_best_grade_path] 
             elif self.debug_path_num != -1:
                 paths = [plane.get_debug_paths()[self.debug_path_num]]
             else:
                 paths = plane.get_debug_paths()
+            """
+            paths = [plane.get_current_path()]
             temp_drawn = []
             for j, path in enumerate(paths):
                 if path == []:

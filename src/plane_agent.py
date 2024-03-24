@@ -11,6 +11,13 @@ gates_in_use = []
 plane_queue = [] 
 
 
+def is_next_node_occupied(node):
+    for plane in plane_queue:
+        if plane.get_map_pos() == node:
+            return True
+    return False
+
+
 def get_plane_queue():
     return plane_queue
 
@@ -100,6 +107,7 @@ class Plane(pygame.sprite.Sprite):
         elif ct == CommunicationType.TAKEOFF_CLEARANCE:
             runway_number = self.flight_data["runway"] 
             self.current_path.extend(self.runway_path)
+            self.aircraft_info["ticks_per_tile"] = 1 # speedy takeoff
             self.d_altitude = DEPARTED_ALTITUDE / len(self.current_path)
             self.set_status(FlightStatus.AIRBORNE)
             self.send_com(atc, (f"Runway {runway_number}, cleared for takeoff, {fn}.", CommunicationType.CONFIRM_TAKEOFF_CLEARANCE))
@@ -138,13 +146,19 @@ class Plane(pygame.sprite.Sprite):
             self.facing = Direction((self.facing.value + 180) % 360)
             self.set_status(FlightStatus.WAITING_FOR_TAXI_CLEARANCE)
         elif status.value >= 5 and status.value <= 12: # taxiing to departure
-            if status == FlightStatus.CLIMBING:
-                self.altitude += self.d_altitude
             try:
                 self.move_on_path()
+                if status == FlightStatus.CLIMBING:
+                    self.altitude += self.d_altitude
+                    if self.altitude >= DEPARTED_ALTITUDE:
+                        self.set_status(FlightStatus.DEPARTED)
             except:
                 new_status = self.get_next_status(status)
                 self.set_status(new_status)
+        if status == FlightStatus.DEPARTED:
+            global plane_queue 
+            plane_queue.remove(self)
+
 
     def get_direction_of_next_node(self, node):
         dx = node[0] - self.map_x

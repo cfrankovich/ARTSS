@@ -217,9 +217,8 @@ def find_taxiway_path(plane, queue):
     crosswinds, headwinds, temp_rwa = get_winds(plane_ticks_per_tile, routes)
     routes, grades = grade_routes(plane, routes, crosswinds, headwinds, queue, temp_rwa) 
     lowest_grade = min(grades) 
-    print(lowest_grade)
     plane.debug_set_grades(grades)
-    #return routes[grades.index(lowest_grade)]
+    return routes[grades.index(lowest_grade)]
     plane.debug_set_best_grade_path(routes[grades.index(lowest_grade)])
     return routes
 
