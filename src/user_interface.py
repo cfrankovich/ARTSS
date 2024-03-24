@@ -4,9 +4,10 @@ from utils.states import State, Event
 from utils.map_handler import TileType, get_map, get_node_type, get_wind_info, MIN_WIND_SPEED, MAX_WIND_SPEED
 from .plane_agent import DEPARTED_ALTITUDE, plane_queue
 import math
-import time
+import numpy as np 
+import matplotlib as plt
 
-FPS = 1 
+FPS = 10 
 WIDTH = 1280
 HEIGHT = 720
 GRID_SPACE_SIZE = 20
@@ -62,18 +63,10 @@ def colorize_image(image, new_color):
     return colored_image
 
 
-def get_rainbow_color(index):
-    rainbow_colors = [
-        (255, 255, 255),  # TODO: remove
-        (255, 0, 0),    # Red
-        (255, 127, 0),  # Orange
-        (255, 255, 0),  # Yellow
-        (0, 255, 0),    # Green
-        (0, 0, 255),    # Blue
-        (75, 0, 130),   # Indigo
-        (148, 0, 211)   # Violet
-    ]
-    return rainbow_colors[index % len(rainbow_colors)]
+def get_rainbow_color(amt, idx):
+    rainbow_colors_red_to_violet = plt.cm.rainbow(np.linspace(1, 0, amt))
+    rainbow_colors_red_to_violet_255 = [(int(color[0]*255), int(color[1]*255), int(color[2]*255)) for color in rainbow_colors_red_to_violet]
+    return rainbow_colors_red_to_violet_255[idx]
 
 
 def to_screen_xy(node):
@@ -106,7 +99,7 @@ def draw_text_with_outline(surface, text, font, pos, text_color, outline_color, 
 class Simulation():
     def __init__(self, ui):
         self.ui = ui
-        airport_image = pygame.image.load("graphics/sim_bg_dark.png")
+        airport_image = pygame.image.load("graphics/sim_bg_demo.png")
         self.airport_background = pygame.transform.scale(airport_image, (WIDTH, HEIGHT))
 
         # grid for testing purposes
@@ -144,9 +137,9 @@ class Simulation():
 
         self.plane_surface.fill((0, 0, 0, 0))
         for n, plane in enumerate(plane_queue):
-            color = get_rainbow_color(n) 
+            #color = get_rainbow_color(n) 
             plane_img = self.plane_imgs[plane.get_aircraft_type().value - 1] 
-            plane_img = colorize_image(plane_img, color)
+            #plane_img = colorize_image(plane_img, color)
             facing_angle = plane.get_facing_direction().value
             mx, my = plane.get_map_pos()
             scale_factor = ((plane.altitude / DEPARTED_ALTITUDE) * (MAX_PLANE_SCALE - 1)) + 1 
@@ -160,6 +153,7 @@ class Simulation():
         ps = pygame.transform.rotate(self.plane_surface, 25) 
         screen.blit(ps, (WIDTH/2 - ps.get_width() / 2, HEIGHT/2 - ps.get_height() / 2))
 
+        """
         CENTER_X = 100
         CENTER_Y = 100
         pygame.draw.rect(screen, (0, 0, 0), (40, 100, 120, 104), border_radius=10)
@@ -186,11 +180,11 @@ class Simulation():
         screen.blit(wind_arrow_rot, rot_rect.topleft)
 
         draw_text_with_outline(screen, f"{wind[1]} knots", self.font, (100, 182), WIND_ARROW_COLOR, (0, 0, 0), 2, True)
+        """
 
         # draw paths 
         half_grid_space_size = GRID_SPACE_SIZE / 2
         path_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        been_drawn = []
         line_width = 2
         for n, plane in enumerate(plane_queue):
             """
@@ -201,12 +195,10 @@ class Simulation():
             else:
                 paths = plane.get_debug_paths()
             """
-            paths = [plane.get_current_path()]
-            temp_drawn = []
+            paths = plane.get_debug_paths()
+            drawn = []
             for j, path in enumerate(paths):
-                if path == []:
-                    continue
-                color = get_rainbow_color(j) 
+                color = get_rainbow_color(len(paths), j) 
                 prev = plane.get_map_pos()
                 for i, node in enumerate(path):
                     top_left = (node[0] * GRID_SPACE_SIZE, node[1] * GRID_SPACE_SIZE) 
@@ -222,14 +214,13 @@ class Simulation():
 
                     new_start = start
                     new_end = end
+                    """
                     line_info = (node, get_line_type(start, end))
 
-                    """
                     if line_info in been_drawn:
                         dup_offset = line_width * been_drawn.count(line_info)
                         new_start = (start[0] + dup_offset, start[1] + dup_offset) 
                         new_end = (end[0] + dup_offset, end[1] + dup_offset) 
-                    """
 
                     if get_node_type(node) == TileType.RUNWAY: 
                         if line_info not in temp_drawn and line_info not in been_drawn: 
@@ -238,8 +229,22 @@ class Simulation():
                     else:
                         pygame.draw.line(path_surface, color, new_start, new_end, line_width)
                         temp_drawn.append(line_info)
+                    """
 
-                been_drawn.extend(temp_drawn) 
+                    line_info = f"{start}{end}"
+                    if line_info in drawn:
+                        offset = line_width * drawn.count(line_info)
+                        new_start = (start[0] + offset, start[1] + offset)
+                        new_end = (end[0] + offset, end[1] + offset)
+
+                    if get_node_type(node) == TileType.RUNWAY: 
+                        draw_dashed_line(path_surface, color, new_start, new_end, line_width) 
+                    else:
+                        pygame.draw.line(path_surface, color, new_start, new_end, line_width)
+
+                    drawn.append(line_info)
+
+                #been_drawn.extend(temp_drawn) 
 
         rot_path_surface = pygame.transform.rotate(path_surface, 25)
         screen.blit(rot_path_surface, (WIDTH/2 - rot_path_surface.get_width() / 2, HEIGHT / 2 - rot_path_surface.get_height() / 2))
