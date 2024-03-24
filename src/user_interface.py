@@ -1,16 +1,52 @@
 import pygame
 import ast
 from utils.states import State, Event 
-from src.sim import get_wind_info, MIN_WIND_SPEED, MAX_WIND_SPEED
-from utils.map_handler import TileType, get_map
+from utils.map_handler import TileType, get_map, get_node_type, get_wind_info, MIN_WIND_SPEED, MAX_WIND_SPEED
 from .plane_agent import DEPARTED_ALTITUDE, plane_queue 
+import math
+import time
 
-FPS = 1 
+FPS = 10 
 WIDTH = 1280
 HEIGHT = 720
 GRID_SPACE_SIZE = 20
 MAX_PLANE_SCALE = 4
 WIND_ARROW_COLOR = (255, 0, 85)
+
+
+def get_line_type(start, end):
+    dx1 = start[0] - end[0]
+    dx2 = end[0] - start[0]
+    dy1 = start[1] - end[1]
+    dy2 = end[1] - start[1]
+    # lol
+    if dx1 == 0: 
+        return 1
+    if dy1 == 0:
+        return 2
+    if dx1 < 1 and dy1 > 1 and dx2 > 1 and dy2 < 1:
+        return 3
+    if dx1 > 1 and dy1 > 1 and dx2 < 1 and dy2 < 1:
+        return 4
+    if dx1 > 1 and dy1 > 1 and dx2 < 1 and dy2 < 1:
+        return 5
+    if dx1 > 1 and dy1 < 1 and dx2 < 1 and dy2 > 1:
+        return 6
+
+
+def draw_dashed_line(surface, color, start_pos, end_pos, width):
+    DASH_LENGTH = 10 
+    x1, y1 = start_pos
+    x2, y2 = end_pos
+    dx = x2 - x1
+    dy = y2 - y1
+    distance = math.sqrt(dx**2 + dy**2)
+    dash_count = int(distance / DASH_LENGTH)
+
+    for i in range(dash_count):
+        start = x1 + (dx * i / dash_count), y1 + (dy * i / dash_count)
+        end = x1 + (dx * (i + 0.5) / dash_count), y1 + (dy * (i + 0.5) / dash_count)
+        pygame.draw.line(surface, color, start, end, width)
 
 
 def colorize_image(image, new_color):
@@ -28,9 +64,14 @@ def colorize_image(image, new_color):
 
 def get_rainbow_color(index):
     rainbow_colors = [
+        (255, 255, 255),  # TODO: remove
         (255, 0, 0),    # Red
-        (0, 0, 255),    # Blue
+        (255, 127, 0),  # Orange
+        (255, 255, 0),  # Yellow
         (0, 255, 0),    # Green
+        (0, 0, 255),    # Blue
+        (75, 0, 130),   # Indigo
+        (148, 0, 211)   # Violet
     ]
     return rainbow_colors[index % len(rainbow_colors)]
 
@@ -40,7 +81,7 @@ def to_screen_xy(node):
 
 
 def get_midpoint(a, b):
-    return (((a[0] + b[0]) / 2), ((a[1] + b[1]) / 2))
+    return ( ((a[0] + b[0]) // 2), ((a[1] + b[1]) // 2) )
 
 
 def draw_text_with_outline(surface, text, font, pos, text_color, outline_color, outline_width, center):
@@ -154,7 +195,7 @@ class Simulation():
             color = get_rainbow_color(n)
             if paths is None: 
                 continue
-            for path in paths:
+            for j, path in enumerate(paths):
                 prev = plane.get_map_pos()
                 for i, node in enumerate(path):
                     top_left = (node[0] * GRID_SPACE_SIZE, node[1] * GRID_SPACE_SIZE) 
@@ -170,14 +211,24 @@ class Simulation():
 
                     new_start = start
                     new_end = end
-                    if (start, end) in been_drawn:
-                        dup_offset = line_width * been_drawn.count((start, end))
+                    line_info = (node, get_line_type(start, end))
+
+                    """
+                    if line_info in been_drawn:
+                        dup_offset = line_width * been_drawn.count(line_info)
                         new_start = (start[0] + dup_offset, start[1] + dup_offset) 
                         new_end = (end[0] + dup_offset, end[1] + dup_offset) 
-                    if (start, end) not in temp_drawn:
-                        temp_drawn.append((start, end))
-                    pygame.draw.line(path_surface, color, new_start, new_end, line_width)
-            been_drawn.extend(temp_drawn) 
+                    """
+
+                    if get_node_type(node) == TileType.RUNWAY: 
+                        if line_info not in temp_drawn and line_info not in been_drawn: 
+                            draw_dashed_line(path_surface, color, new_start, new_end, line_width) 
+                            temp_drawn.append(line_info)
+                    else:
+                        pygame.draw.line(path_surface, color, new_start, new_end, line_width)
+                        temp_drawn.append(line_info)
+
+                been_drawn.extend(temp_drawn) 
 
         rot_path_surface = pygame.transform.rotate(path_surface, 25)
         screen.blit(rot_path_surface, (WIDTH/2 - rot_path_surface.get_width() / 2, HEIGHT / 2 - rot_path_surface.get_height() / 2))

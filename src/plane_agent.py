@@ -1,7 +1,7 @@
 import pygame
 from utils.flight_data_handler import generate_flight_data, FlightStatus, generate_aircraft_info 
 from utils.coms import CommunicationType 
-from utils.map_handler import gates, get_facing_direction_from_gate, Direction, get_adjacent_runway_pos, get_runway_path
+from utils.map_handler import gates, get_facing_direction_from_gate, Direction, get_adjacent_runway_pos, get_runway_paths
 from utils.logger import logger
 
 AIRPORT = "DAB"
@@ -70,7 +70,7 @@ class Plane(pygame.sprite.Sprite):
             self.send_com(atc, (f"Runway {runway_number}, lining up and waiting, {fn}.", CommunicationType.LINE_UP))
         elif ct == CommunicationType.TAKEOFF_CLEARANCE:
             runway_number = self.flight_data["runway"] 
-            self.current_path.extend(get_runway_path(self.map_x, self.map_y))
+            self.current_path.extend(get_runway_paths(self.map_x, self.map_y)[0])
             self.d_altitude = DEPARTED_ALTITUDE / len(self.current_path)
             self.set_status(FlightStatus.AIRBORNE)
             self.send_com(atc, (f"Runway {runway_number}, cleared for takeoff, {fn}.", CommunicationType.CONFIRM_TAKEOFF_CLEARANCE))

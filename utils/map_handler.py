@@ -1,11 +1,52 @@
 from enum import Enum
 import random
+import numpy as np
+import math 
 
 MAP_PATH = "map.csv"
+MAX_WIND_SPEED = 25
+MIN_WIND_SPEED = 5
+
 gates = {} 
 map = [] 
 runways = {}
 debug_paths = []
+winds = []
+wind_direction = random.randrange(0, 360) # deg 
+wind_speed = random.randrange(MIN_WIND_SPEED, MAX_WIND_SPEED + 1) # knots 
+winds.append((wind_direction, wind_speed))
+
+
+def get_wind_info():
+    return (wind_direction, wind_speed)
+
+
+def get_winds():
+    return winds
+
+
+def adjust_wind():
+    global winds
+    global wind_direction
+    global wind_speed 
+
+    new_wind = winds.pop(0)
+    wind_direction = new_wind[0]
+    wind_speed = new_wind[1]
+
+    dir = int(np.random.normal(winds[-1][0], 8)) % 360 
+    speed = int(np.random.normal(winds[-1][1], 4))
+    speed = max(MIN_WIND_SPEED, min(MAX_WIND_SPEED, speed))
+    winds.append((dir, speed))
+
+
+def init_winds(samples):
+    global winds
+    for i in range(1, samples):
+        dir = int(np.random.normal(winds[i-1][0], 8)) % 360 
+        speed = int(np.random.normal(winds[i-1][1], 4))
+        speed = max(MIN_WIND_SPEED, min(MAX_WIND_SPEED, speed))
+        winds.append((dir, speed))
 
 
 def get_node_type_from_pos(pos):
@@ -126,9 +167,7 @@ def get_adjacent_runway_pos(x, y):
     return None
 
 
-# return the longest runway path go out both sides
-# probably not the most efficient but it werks!!!!!!!!!!!!!!!!
-def get_runway_path(x, y):
+def get_runway_paths(x, y):
     global map
     arp = get_adjacent_runway_pos(x, y)
     path1 = []
@@ -158,38 +197,57 @@ def get_runway_path(x, y):
         my += dy
         node = map[mx][my]
 
-    return path1 if len(path1) > len(path2) else path2
+    return (path1, path2) 
 
 
-def find_taxiway_path(plane, queue, winds):
-    # TODO:
-    # get the average crosswind during the predicted time range from takeoff to departed 
-    # use this crosswind, max crosswind limit, required runway space, and distance to suggest a runway  
-    # determine the shortest path to this runway while evaluating different entrance possibilities
-    # evaluate the path comparing each step or node to other routes during the time
-    #
-    # INFO:
-    # a route can be shared no need to try and go around a plane going the same place
-    # the best route is one where it is not blocking the terminal entrance or gates if
-    # theres potentially a long queue, shortest path to runway, not crossing runways, not
-    # intersecting with other routes that have different destinations, etc. 
-    #
-    # TODO: 
-    # experiment by generating all possibilities and then draw the lines for the possibilities
-    # "grade" the possibilities and color them accordingly and take a screenshot would be good
-    # to have in presentation 
-    #
-
+def find_taxiway_path(plane, queue):
+    plane_ticks_per_tile = plane.aircraft_info["ticks_per_tile"]
     min_runway_required = plane.aircraft_info["required_runway_space"]
     routes = get_all_routes_no_wind(plane.get_pos(), min_runway_required)
-    return routes 
+    crosswinds = get_crosswinds(plane_ticks_per_tile, routes)
+    grades = grade_routes(plane, routes, crosswinds, queue) 
+    lowest_grade = min(grades)
+    return routes[grades.index(lowest_grade)] 
+
+
+def get_crosswinds(ticks_per_tile, routes):
+    global winds
+    crosswinds = []
+
+    for route in routes:
+        wind_index = 0
+        avg_crosswind_arr = [] 
+        runway_angle = get_runway_angle_from_route(route)
+        for node in route:
+            if get_node_type(node) is not TileType.RUNWAY: 
+                wind_index += ticks_per_tile
+                continue
+            
+            wind = winds[wind_index] 
+            wind_dir = wind[0]
+            wind_speed = wind[1]
+            cw = wind_speed / (math.cos(abs(180 - abs(runway_angle - wind_dir))))
+            avg_crosswind_arr.append(cw)
+        
+        avg_crosswind = sum(avg_crosswind_arr) / len(avg_crosswind_arr)
+        crosswinds.append(avg_crosswind)
+
+    return crosswinds 
 
 
 def get_all_routes_no_wind(pos, min_runway_required):
-    return get_all_runway_paths(pos[0], pos[1])
+    routes = []
+    paths = get_all_runway_paths(pos[0], pos[1])
+    for path in paths:
+        runway_node = path[-1] 
+        runway_paths = get_runway_paths(runway_node[0], runway_node[1])
+        if len(runway_paths[0]) > min_runway_required:
+            routes.append(path + runway_paths[0][:min_runway_required])
+        if len(runway_paths[1]) > min_runway_required:
+            routes.append(path + runway_paths[1][:min_runway_required])
+    return routes[:-min_runway_required]
 
 
-# breadth first search 
 def get_all_runway_paths(mx, my):
     paths = []
     map = get_map()
@@ -230,3 +288,81 @@ def get_all_runway_paths(mx, my):
 def debug_get_paths():
     global debug_paths
     return debug_paths
+
+
+def get_node_type(pos):
+    global map
+    return map[pos[0]][pos[1]].type
+
+
+def get_runway_angle_from_route(route):
+    for node in route: 
+        if get_node_type(node) is TileType.RUNWAY:
+            return int(map[node[0]][node[1]].info[:2]) * 10 
+    return None
+
+
+def get_other_routes(current_plane, queue):
+    return [plane.current_path for plane in queue if current_plane != plane]
+
+
+def grade_routes(plane, routes, crosswinds, queue):
+    # lowest grade is best route
+    grades = []
+
+    # filter routes that have too much crosswind for plane  
+    max_crosswind_limit = plane.aircraft_info["crosswind_limit"]
+    for i in range(len(routes)-1, -1, -1):
+        if crosswinds[i] > max_crosswind_limit:
+            routes.pop(i)
+            crosswinds.pop(i)
+
+    # grade crosswinds (0 for least, len for max) 
+    sorted_winds = sorted(crosswinds) 
+    grades = [sorted_winds.index(cw) for cw in crosswinds]
+
+    # intersections  
+    intersections = [get_intersections(route, queue, plane) for route in routes]
+    grades = [ grades[i] + intersections[i] for i in range(len(grades)) ]
+
+    # distance (div by 3 for less of a penalty) 
+    grades = [ grades[i] + (len(route) / 3) for i, route in enumerate(routes)]
+
+    return grades 
+
+
+def get_intersections(route, queue, plane):
+    # TODO: cover your eyes
+    plane_speed = plane.aircraft_info["ticks_per_tile"] 
+    route_with_times = [(node, i * plane_speed) for i, node in enumerate(route)]
+    other_routes_with_speed = [(p.aircraft_info["ticks_per_tile"], p.current_path) for p in queue if plane != p]
+    intersections_count = 0 
+    runway_lineup_node = get_runway_lineup_node(route) 
+
+    for node_and_time in route_with_times:
+        intersection_count = 0
+        node = node_and_time[0] 
+        time = node_and_time[1]
+
+        for other_route_and_speed in other_routes_with_speed: 
+            other_plane_landing = other_route[-1] is TileType.GATE
+            other_runway_lineup_node = get_runway_lineup_node(other_route) 
+
+            if other_plane_landing is False and runway_lineup_node == other_runway_lineup_node:
+                return -1 # taxiing to same location  
+
+            other_speed = other_route_and_speed[0] 
+            other_route = other_route_and_speed[1]
+
+            for i, other_node in enumerate(other_route):
+                if node == other_node and time == other_speed * i:
+                    intersection_count += 1 + other_plane_landing # penalize if intersecting with landing path 
+
+    return intersection_count
+
+
+def get_runway_lineup_node(route):
+    for node in route:
+        if get_node_type(node) is TileType.RUNWAY:
+            return node
+    return None
