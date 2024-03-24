@@ -36,6 +36,7 @@ class Plane(pygame.sprite.Sprite):
         self.altitude = 0
         self.debug_paths = []
         self.debug_best_grade_path = []
+        self.ticks = 0
 
     def debug_set_best_grade_path(self, route):
         self.debug_best_grade_path = route
@@ -109,6 +110,9 @@ class Plane(pygame.sprite.Sprite):
         atc.receive_com(com, self)
 
     def update(self):
+        self.ticks += 1
+        if self.ticks % self.aircraft_info["ticks_per_tile"] != 0:
+            return
         status = self.flight_data["status"]
         if status == FlightStatus.PUSHBACK_IN_PROGRESS:
             self.facing = Direction((self.facing.value + 180) % 360)

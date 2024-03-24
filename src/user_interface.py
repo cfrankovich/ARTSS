@@ -199,7 +199,6 @@ class Simulation():
             temp_drawn = []
             color = get_rainbow_color(n)
             for j, path in enumerate(paths):
-                print(path)
                 prev = plane.get_map_pos()
                 for i, node in enumerate(path):
                     top_left = (node[0] * GRID_SPACE_SIZE, node[1] * GRID_SPACE_SIZE) 

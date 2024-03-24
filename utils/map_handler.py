@@ -217,7 +217,6 @@ def find_taxiway_path(plane, queue):
     crosswinds = get_crosswinds(plane_ticks_per_tile, routes)
     grades = grade_routes(plane, routes, crosswinds, queue) 
     lowest_grade = min(grades) # TODO: occasional bug where this is empty
-    print(routes[grades.index(lowest_grade)]) 
     return routes[grades.index(lowest_grade)] 
     #plane.debug_set_best_grade_path(routes[grades.index(lowest_grade)])
     #return routes
@@ -242,8 +241,8 @@ def get_crosswinds(ticks_per_tile, routes):
         avg_crosswind_arr = [] 
         runway_angle = get_runway_angle_from_route(route)
         for node in route:
+            wind_index += ticks_per_tile
             if get_node_type(node) is not TileType.RUNWAY: 
-                wind_index += ticks_per_tile
                 continue
             
             wind = winds[wind_index] 

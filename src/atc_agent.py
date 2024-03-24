@@ -54,7 +54,6 @@ class Agent():
         if ct == CommunicationType.TAKEOFF_CLEARANCE:
             runway_number = plane.flight_data["runway"] 
             wind = get_wind_info()
-            print("CLEARED")
             return (f"{fn}, runway {runway_number}, cleared for takeoff, wind {wind[0]} degrees at {wind[1]} knots.", CommunicationType.TAKEOFF_CLEARANCE)
         if ct == CommunicationType.DEPARTURE:
             return (f"{fn}, radar contact, climb to {DEPARTED_ALTITUDE}, proceed on course.", CommunicationType.DEPARTURE)
