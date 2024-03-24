@@ -24,8 +24,9 @@ class Agent():
             return (f"{fn}, {AIRPORT} Ground, cleared for pushback and engine start, advise ready to taxi.", CommunicationType.PUSHBACK_CLEARANCE)
         if ct == CommunicationType.TAXI_CLEARANCE:
             full_path = find_taxiway_path(plane, get_plane_queue())
-            #plane.set_debug_paths(full_path)
+            plane.set_debug_paths(full_path)
             
+            """
             runway_node = full_path[-4]
             map = get_map()
             runway_number = map[runway_node[0]][runway_node[1]].info
@@ -46,6 +47,7 @@ class Agent():
             print(f"ASSIGNED PLANE PATH: {plane.current_path}")
 
             return (f"{fn}, taxi to runway {runway_number}, via taxiways {taxiways}, hold short of runway {runway_number}.", CommunicationType.TAXI_CLEARANCE)
+            """
             return (f"", CommunicationType.NONE)
         if ct == CommunicationType.HOLDING_SHORT:
             runway_number = plane.flight_data["runway"] 

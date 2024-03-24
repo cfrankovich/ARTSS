@@ -6,7 +6,7 @@ from utils.flight_data_handler import FlightStatus
 from utils.coms import CommunicationType
 from utils.map_handler import init_winds, adjust_wind, debug_init_winds
 
-STARTING_PLANE_COUNT = 5
+STARTING_PLANE_COUNT = 1
 
 
 class ARTSS():

@@ -214,6 +214,7 @@ def find_taxiway_path(plane, queue):
     plane_ticks_per_tile = plane.aircraft_info["ticks_per_tile"]
     min_runway_required = plane.aircraft_info["required_runway_space"]
     routes = get_all_routes_no_wind(plane.get_pos(), min_runway_required)
+    return routes
     crosswinds, headwinds, temp_rwa = get_winds(plane_ticks_per_tile, routes)
     routes, grades = grade_routes(plane, routes, crosswinds, headwinds, queue, temp_rwa) 
     lowest_grade = min(grades) 
