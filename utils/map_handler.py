@@ -13,11 +13,11 @@ map = []
 runways = {}
 debug_paths = []
 winds = []
-#wind_direction = random.randrange(0, 360) # deg 
-#wind_speed = random.randrange(MIN_WIND_SPEED, MAX_WIND_SPEED + 1) # knots 
-wind_direction = 0 
-wind_speed = 0 
-#winds.append((wind_direction, wind_speed))
+wind_direction = random.randrange(0, 360) # deg 
+wind_speed = random.randrange(MIN_WIND_SPEED, MAX_WIND_SPEED + 1) # knots 
+wind_direction = 70 
+wind_speed = 14 
+winds.append((wind_direction, wind_speed))
 
 
 def get_wind_info():
@@ -223,7 +223,6 @@ def find_taxiway_path(plane, queue):
     return routes
     return routes[grades.index(lowest_grade)]
     plane.debug_set_best_grade_path(routes[grades.index(lowest_grade)])
-    return routes
 
 
 def calculate_crosswind(runway_angle_deg, wind_angle_deg, wind_speed):

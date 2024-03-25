@@ -7,6 +7,7 @@ import math
 import numpy as np 
 import matplotlib as plt
 from utils.logger import ARTSSClock
+from utils.flight_data_handler import FlightStatus
 
 FPS = 2 
 WIDTH = 1280
@@ -20,6 +21,35 @@ COMPASS_BG_COLOR = (27, 27, 37)
 #LOWER_COMPASS_BG_COLOR = (95, 95, 117)
 LOWER_COMPASS_BG_COLOR = (0, 0, 0)
 COMPASS_DIR_COLOR = (190, 180, 180)
+
+def get_status_text(plane):
+    status = plane.get_status()
+    if status == FlightStatus.AT_GATE: 
+        return "At Gate" 
+    elif status == FlightStatus.READY_FOR_PUSHBACK: 
+        return "Ready for Pushback" 
+    elif status == FlightStatus.PUSHBACK_IN_PROGRESS: 
+        return "Pushback in Progress"
+    elif status == FlightStatus.WAITING_FOR_TAXI_CLEARANCE: 
+        return "Waiting for Taxi Clearance" 
+    elif status == FlightStatus.TAXIING_TO_RUNWAY: 
+        return "Taxiing to Runway" 
+    elif status == FlightStatus.HOLDING_SHORT: 
+        return "Holding Short" 
+    elif status == FlightStatus.LINING_UP: 
+        return "Lining Up" 
+    elif status == FlightStatus.WAITING_FOR_TAKEOFF_CLEARANCE: 
+        return "Waiting for Takeoff Clearance" 
+    elif status == FlightStatus.TAKING_OFF: 
+        return "Taking Off" 
+    elif status == FlightStatus.AIRBORNE: 
+        return "Airborne" 
+    elif status == FlightStatus.CLIMBING: 
+        return "Climbing" 
+    elif status == FlightStatus.DEPARTED: 
+        return "Departed" 
+    else:
+        return "None"
 
 
 def get_line_type(start, end):
@@ -70,6 +100,14 @@ def colorize_image(image, new_color):
     return colored_image
 
 
+def get_red_green_color(amt, idx):
+    if idx == 0: 
+        return (255, 0, 255)
+    colors = plt.cm.RdYlGn(np.linspace(1, 0, amt))
+    rgb_colors = [(int(c[0]*255), int(c[1]*255), int(c[2]*255)) for c in colors]
+    return rgb_colors[idx]
+
+
 def get_rainbow_color(amt, idx):
     rainbow_colors_red_to_violet = plt.cm.rainbow(np.linspace(1, 0, amt))
     rainbow_colors_red_to_violet_255 = [(int(color[0]*255), int(color[1]*255), int(color[2]*255)) for color in rainbow_colors_red_to_violet]
@@ -115,7 +153,7 @@ class Simulation():
             for j, y in enumerate(x):
                 if y.type == TileType.NOTHING: 
                     continue 
-                pygame.draw.rect(grid_surface, y.color, (i*GRID_SPACE_SIZE, j*GRID_SPACE_SIZE, 
+                pygame.draw.rect(grid_surface, (255, 255, 255), (i*GRID_SPACE_SIZE, j*GRID_SPACE_SIZE, 
                                                 GRID_SPACE_SIZE, GRID_SPACE_SIZE), 1)
         self.rot_grid_surface = pygame.transform.rotate(grid_surface, 25)
 
@@ -160,7 +198,6 @@ class Simulation():
         ps = pygame.transform.rotate(self.plane_surface, 25) 
         screen.blit(ps, (WIDTH/2 - ps.get_width() / 2, HEIGHT/2 - ps.get_height() / 2))
 
-        """
         CENTER_X = 100
         CENTER_Y = 100
         pygame.draw.rect(screen, (0, 0, 0), (CENTER_X-60, CENTER_Y, 120, 134), border_radius=10)
@@ -186,17 +223,23 @@ class Simulation():
         rot_rect.center = (CENTER_X, CENTER_Y)
         screen.blit(wind_arrow_rot, rot_rect.topleft)
 
-        draw_text_with_outline(screen, f"{wind[1]} knots", self.font, (CENTER_X, CENTER_Y+82), WIND_ARROW_COLOR, (0, 0, 0), 2, True)
+        draw_text_with_outline(screen, f"{wind[1]} knots", self.font, (CENTER_X, CENTER_Y+97), WIND_ARROW_COLOR, (0, 0, 0), 2, True)
 
         the_time = str(ARTSSClock.ticks)
-        draw_text_with_outline(screen, f"Tick #{the_time}", self.font, (CENTER_X, CENTER_Y+112), WIND_ARROW_COLOR, (0, 0, 0), 2, True)
-        """
+        draw_text_with_outline(screen, f"", self.font, (CENTER_X, CENTER_Y+112), WIND_ARROW_COLOR, (0, 0, 0), 2, True)
 
         # draw paths 
         half_grid_space_size = GRID_SPACE_SIZE / 2
         path_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        line_width = 2
+        line_width = 3
         for n, plane in enumerate(plane_queue):
+            #status_text = get_status_text(plane)
+            #text_surface = self.font.render(status_text, True, (0, 0, 0))
+            #text_rect = text_surface.get_rect()
+            #pygame.draw.rect(screen, (0, 0, 0), (CENTER_X-60, CENTER_Y+150, text_rect[2]+18, 48), border_radius=10)
+            #pygame.draw.rect(screen, COMPASS_BG_COLOR, (CENTER_X-56, CENTER_Y+154, text_rect[2]+10, 40), border_radius=8)
+
+            #draw_text_with_outline(screen, f"{status_text}", self.font, (CENTER_X-51, CENTER_Y+164), WIND_ARROW_COLOR, (0, 0, 0), 2, False)
             """
             if self.debug_flag:
                 paths = [plane.debug_best_grade_path] 
@@ -206,10 +249,19 @@ class Simulation():
                 paths = plane.get_debug_paths()
             """
             paths = plane.get_debug_paths()
+            print(paths)
             #paths = [plane.current_path]
+            grades = plane.get_grades()
+            print(grades)
+            if grades == []:
+                continue
             drawn = []
             for j, path in enumerate(paths):
-                color = get_rainbow_color(len(paths), j) 
+                #color = get_rainbow_color(len(paths), j) 
+                #color = (255, 255, 255) 
+                print(len(paths))
+                print(len(grades))
+                color = get_red_green_color(len(grades), grades[j])
                 prev = plane.get_map_pos()
                 for i, node in enumerate(path):
                     top_left = (node[0] * GRID_SPACE_SIZE, node[1] * GRID_SPACE_SIZE) 
@@ -228,10 +280,11 @@ class Simulation():
 
                     line_info = f"{start}{end}"
                     if line_info in drawn:
-                        offset = line_width * drawn.count(line_info)
+                        n = drawn.count(line_info)
+                        offset = (round(n/2) * (-1 if n % 2 == 0 else 1)) + line_width
                         new_start = (start[0] + offset, start[1] + offset)
                         new_end = (end[0] + offset, end[1] + offset)
-
+                    
                     if get_node_type(node) == TileType.RUNWAY: 
                         draw_dashed_line(path_surface, color, new_start, new_end, line_width) 
                     else:

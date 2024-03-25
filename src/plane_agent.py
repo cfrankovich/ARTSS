@@ -44,23 +44,15 @@ class Plane(pygame.sprite.Sprite):
         self.debug_paths = []
         self.debug_best_grade_path = []
         self.ticks = 0
-        self.grade_colors = []
+        self.grades = []
+
+    def get_grades(self):
+        return self.grades
 
     def debug_set_grades(self, grades):
         sorted_grades = sorted(grades) 
         ranked_grades = [sorted_grades.index(grade) for grade in grades]
-        max_rank = max(ranked_grades)
-        step = 255 // len(ranked_grades)
-        red = 0
-        green = 255
-        for rank in ranked_grades:
-            if rank == 0:
-                color = (255, 0, 255)
-            else:
-                red = rank * step 
-                green = 255 - (rank * step) if red >= (max_rank * step // 2) else 255 
-                color = (red, green, 0)
-            self.grade_colors.append(color)
+        self.grades = ranked_grades
 
     def get_grade_color(self, n):
         return self.grade_colors[n]
@@ -158,7 +150,6 @@ class Plane(pygame.sprite.Sprite):
         if status == FlightStatus.DEPARTED:
             global plane_queue 
             plane_queue.remove(self)
-
 
     def get_direction_of_next_node(self, node):
         dx = node[0] - self.map_x

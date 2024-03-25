@@ -18,7 +18,7 @@ class ARTSS():
 
     def tick(self):
         ARTSSClock.tick()
-        adjust_wind()
+        #adjust_wind()
         self.address_queue()
         return Event.NONE
     
