@@ -13,8 +13,8 @@ class ARTSS():
     def __init__(self):
         self.atc_agent = Agent()
         init_plane_queue(STARTING_PLANE_COUNT)
-        init_winds(300)
-        #debug_init_winds(300)
+        #init_winds(300)
+        debug_init_winds(300)
 
     def tick(self):
         ARTSSClock.tick()

@@ -16,8 +16,8 @@ winds = []
 #wind_direction = random.randrange(0, 360) # deg 
 #wind_speed = random.randrange(MIN_WIND_SPEED, MAX_WIND_SPEED + 1) # knots 
 wind_direction = 0 
-wind_speed = 20 
-winds.append((wind_direction, wind_speed))
+wind_speed = 0 
+#winds.append((wind_direction, wind_speed))
 
 
 def get_wind_info():
@@ -47,7 +47,9 @@ def debug_init_winds(samples):
     global winds
     global wind_direction
     global wind_speed
-    winds = [(wind_direction, wind_speed) for i in range(samples)]
+    winds = [(70, 12) for i in range(15)]
+    winds.extend([(340, 12) for i in range(samples)])
+    #winds = [(wind_direction, wind_speed) for i in range(samples)]
 
 
 def init_winds(samples):
@@ -115,6 +117,7 @@ class Tile():
 
 
 def get_random_gate(gates_in_use, flight_num):
+    return "B1" 
     gate = random.choice(list(gates.items()))[0]
     char_to_check = "A" if flight_num[:2] == "ER" else "B" # gates B-XX are exclusive to ERU flights 
     while gate in gates_in_use or gate[0] == char_to_check:
@@ -214,7 +217,6 @@ def find_taxiway_path(plane, queue):
     plane_ticks_per_tile = plane.aircraft_info["ticks_per_tile"]
     min_runway_required = plane.aircraft_info["required_runway_space"]
     routes = get_all_routes_no_wind(plane.get_pos(), min_runway_required)
-    return routes
     crosswinds, headwinds, temp_rwa = get_winds(plane_ticks_per_tile, routes)
     routes, grades = grade_routes(plane, routes, crosswinds, headwinds, queue, temp_rwa) 
     lowest_grade = min(grades) 

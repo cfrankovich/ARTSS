@@ -62,7 +62,16 @@ def generate_flight_data(gates_in_use, status=FlightStatus.AT_GATE):
 
 def generate_aircraft_info(): 
     airline = used_flight_nums[-1][:2] # assuming this function is called after generate_flight_data 
-    aircraft_type = PlaneCategory.SMALL if airline == "ER" else random.choice([PlaneCategory.LARGE, PlaneCategory.DEFAULT])
+    #aircraft_type = PlaneCategory.SMALL if airline == "ER" else random.choice([PlaneCategory.LARGE, PlaneCategory.DEFAULT])
+    aircraft_type = PlaneCategory.DEFAULT
+
+    return {
+        "type" : aircraft_type, 
+        "crosswind_limit" : 20, # knots
+        "required_runway_space" : 15, # num squares required to takeoff and land
+        "ticks_per_tile" : 2, # num clock cycles to cover a tile (speed kinda) 
+    }
+
     
     if aircraft_type == PlaneCategory.LARGE:
         return {

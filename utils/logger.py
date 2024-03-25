@@ -14,8 +14,9 @@ class ARTSSClock():
         tick_minutes = ARTSSClock.ticks / ARTSSClock.TICKS_PER_MINUTE 
         minutes = int(ARTSSClock.start_time[2:]) + tick_minutes
         hours = (int(ARTSSClock.start_time[:2]) + (minutes // 60)) % 24 
-        minutes %= 60
-        return f"{int(hours)}:{int(minutes)}" 
+        minutes = int(minutes % 60)
+        str_mins = f"0{minutes}" if minutes < 10 else f"{minutes}"
+        return f"{int(hours)}:{str_mins}" 
 
 
 class Logger():

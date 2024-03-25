@@ -6,13 +6,20 @@ from .plane_agent import DEPARTED_ALTITUDE, plane_queue
 import math
 import numpy as np 
 import matplotlib as plt
+from utils.logger import ARTSSClock
 
-FPS = 10 
+FPS = 2 
 WIDTH = 1280
 HEIGHT = 720
 GRID_SPACE_SIZE = 20
 MAX_PLANE_SCALE = 4
-WIND_ARROW_COLOR = (255, 0, 85)
+#WIND_ARROW_COLOR = (255, 0, 85)
+WIND_ARROW_COLOR = (255, 255, 255)
+#COMPASS_BG_COLOR = (77, 77, 97)
+COMPASS_BG_COLOR = (27, 27, 37)
+#LOWER_COMPASS_BG_COLOR = (95, 95, 117)
+LOWER_COMPASS_BG_COLOR = (0, 0, 0)
+COMPASS_DIR_COLOR = (190, 180, 180)
 
 
 def get_line_type(start, end):
@@ -99,7 +106,7 @@ def draw_text_with_outline(surface, text, font, pos, text_color, outline_color, 
 class Simulation():
     def __init__(self, ui):
         self.ui = ui
-        airport_image = pygame.image.load("graphics/sim_bg_demo.png")
+        airport_image = pygame.image.load("graphics/sim_bg_demo_no_labels.png")
         self.airport_background = pygame.transform.scale(airport_image, (WIDTH, HEIGHT))
 
         # grid for testing purposes
@@ -119,7 +126,7 @@ class Simulation():
 
         self.plane_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
 
-        self.wind_arrow = pygame.image.load("graphics/wind_arrow.png")
+        self.wind_arrow = pygame.image.load("graphics/wind_arrow_white.png")
         self.font = pygame.font.Font(None, 34)
         self.smaller_font = pygame.font.Font(None, 30)
 
@@ -139,7 +146,7 @@ class Simulation():
         for n, plane in enumerate(plane_queue):
             #color = get_rainbow_color(n) 
             plane_img = self.plane_imgs[plane.get_aircraft_type().value - 1] 
-            #plane_img = colorize_image(plane_img, color)
+            plane_img = colorize_image(plane_img, WIND_ARROW_COLOR)
             facing_angle = plane.get_facing_direction().value
             mx, my = plane.get_map_pos()
             scale_factor = ((plane.altitude / DEPARTED_ALTITUDE) * (MAX_PLANE_SCALE - 1)) + 1 
@@ -153,20 +160,19 @@ class Simulation():
         ps = pygame.transform.rotate(self.plane_surface, 25) 
         screen.blit(ps, (WIDTH/2 - ps.get_width() / 2, HEIGHT/2 - ps.get_height() / 2))
 
-        """
-        CENTER_X = 100
-        CENTER_Y = 100
-        pygame.draw.rect(screen, (0, 0, 0), (40, 100, 120, 104), border_radius=10)
-        pygame.draw.rect(screen, (30, 30, 30), (44, 100, 112, 100), border_radius=10)
+        CENTER_X = 550
+        CENTER_Y = 200
+        pygame.draw.rect(screen, (0, 0, 0), (CENTER_X-60, CENTER_Y, 120, 134), border_radius=10)
+        pygame.draw.rect(screen, COMPASS_BG_COLOR, (CENTER_X-56, CENTER_Y, 112, 130), border_radius=8)
         pygame.draw.circle(screen, (0, 0, 0), (CENTER_X, CENTER_Y), 67) 
-        pygame.draw.circle(screen, (100, 100, 100), (CENTER_X, CENTER_Y), 63) 
+        pygame.draw.circle(screen, COMPASS_BG_COLOR, (CENTER_X, CENTER_Y), 63) 
         pygame.draw.circle(screen, (0, 0, 0), (CENTER_X, CENTER_Y), 38) 
-        pygame.draw.circle(screen, (30, 30, 30), (CENTER_X, CENTER_Y), 34) 
+        pygame.draw.circle(screen, LOWER_COMPASS_BG_COLOR, (CENTER_X, CENTER_Y), 34) 
         pygame.draw.circle(screen, (0, 0, 0), (CENTER_X, CENTER_Y), 10) 
-        draw_text_with_outline(screen, "N", self.smaller_font, (92, 40), (150, 140, 140), (0, 0, 0), 2, False)
-        draw_text_with_outline(screen, "S", self.smaller_font, (94, 142), (150, 140, 140), (0, 0, 0), 2, False)
-        draw_text_with_outline(screen, "E", self.smaller_font, (143, 92), (150, 140, 140), (0, 0, 0), 2, False)
-        draw_text_with_outline(screen, "W", self.smaller_font, (40, 92), (150, 140, 140), (0, 0, 0), 2, False)
+        draw_text_with_outline(screen, "N", self.smaller_font, (CENTER_X-8, CENTER_Y-60), COMPASS_DIR_COLOR, (0, 0, 0), 2, False)
+        draw_text_with_outline(screen, "S", self.smaller_font, (CENTER_X-6, CENTER_Y+42), COMPASS_DIR_COLOR, (0, 0, 0), 2, False)
+        draw_text_with_outline(screen, "E", self.smaller_font, (CENTER_X+43, CENTER_Y-8), COMPASS_DIR_COLOR, (0, 0, 0), 2, False)
+        draw_text_with_outline(screen, "W", self.smaller_font, (CENTER_X-60, CENTER_Y-8), COMPASS_DIR_COLOR, (0, 0, 0), 2, False)
 
         wind = get_wind_info()
         wind_arrow_size = self.wind_arrow.get_size()
@@ -179,13 +185,15 @@ class Simulation():
         rot_rect.center = (CENTER_X, CENTER_Y)
         screen.blit(wind_arrow_rot, rot_rect.topleft)
 
-        draw_text_with_outline(screen, f"{wind[1]} knots", self.font, (100, 182), WIND_ARROW_COLOR, (0, 0, 0), 2, True)
-        """
+        draw_text_with_outline(screen, f"{wind[1]} knots", self.font, (CENTER_X, CENTER_Y+82), WIND_ARROW_COLOR, (0, 0, 0), 2, True)
+
+        the_time = str(ARTSSClock.ticks)
+        draw_text_with_outline(screen, f"Tick #{the_time}", self.font, (CENTER_X, CENTER_Y+112), WIND_ARROW_COLOR, (0, 0, 0), 2, True)
 
         # draw paths 
         half_grid_space_size = GRID_SPACE_SIZE / 2
         path_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        line_width = 2
+        line_width = 4
         for n, plane in enumerate(plane_queue):
             """
             if self.debug_flag:
@@ -195,10 +203,11 @@ class Simulation():
             else:
                 paths = plane.get_debug_paths()
             """
-            paths = plane.get_debug_paths()
+            paths = [plane.current_path]
             drawn = []
             for j, path in enumerate(paths):
-                color = get_rainbow_color(len(paths), j) 
+                #color = get_rainbow_color(len(paths), j) 
+                color = WIND_ARROW_COLOR 
                 prev = plane.get_map_pos()
                 for i, node in enumerate(path):
                     top_left = (node[0] * GRID_SPACE_SIZE, node[1] * GRID_SPACE_SIZE) 
