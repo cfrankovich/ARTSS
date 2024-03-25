@@ -2,15 +2,15 @@ import pygame
 import math
 
 class Plane(pygame.sprite.Sprite):
-    def __init__(self, color, height, width, flightnum):
+    def __init__(self, flightnum, screen, x, y):
        super().__init__() 
-       self.color = color
-       self.image = pygame.Surface([width, height])
-       self.image.fill(color)
        self.image = pygame.image.load("graphics/plane.png")
        self.rect = self.image.get_rect() 
-       self.rect.x = 800
-       self.rect.y = 400
+       self.rect.x = x
+       self.rect.y = y
+       self.mask = pygame.mask.from_surface(self.image)
+
+       self.screen = screen
        self.flightnumber = flightnum
 
     def move(self, dx, dy):
@@ -41,4 +41,9 @@ class Plane(pygame.sprite.Sprite):
         rot_image = rot_image.subsurface(rot_rect).copy()
         return rot_image
        
-        
+    def update(self, dx, dy):
+        planefont = pygame.font.Font(None, 25)
+        planetext = planefont.render(self.flightnumber, True, "Blue")
+        rotated_plane = self.move(dx, dy)
+        self.screen.blit(rotated_plane, rotated_plane.get_rect(center = self.rect.center))
+        self.screen.blit(planetext, rotated_plane.get_rect(center = self.rect.center))

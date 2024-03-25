@@ -2,10 +2,10 @@ import pygame
 import ast
 import math
 import random
-from random import randint
 from utils.states import State, Event 
 from src.plane_agent import Plane
 from src.message_box import MessageBox
+from src.explosion import Explosion
 
 class Simulation():
     def __init__(self, ui):
@@ -19,6 +19,10 @@ class Simulation():
         self.titletext_widget = self.titletext.get_rect(midtop = (ui.screen_width/2, 0))
         self.return_text = self.menufont.render("<--Return", True, "Black")
         self.return_button = self.return_text.get_rect(topleft = (0,0))
+        self.play_button = pygame.image.load("graphics/playbutton.png")
+        self.play_button = pygame.transform.smoothscale(self.play_button, (ui.screen_width/30, ui.screen_height/20))
+        self.pause_button = pygame.image.load("graphics/pausebutton.png")
+        self.pause_button = pygame.transform.smoothscale(self.pause_button, (ui.screen_width/30, ui.screen_height/20))
         self.logheader_text = self.menufont.render("Log", True, "White")
         self.logheader_widget = self.logheader_text.get_rect(center = (ui.screen_width/6, 50))
         self.logbox = pygame.Rect((0, 75), (ui.screen_width/3, ui.screen_height - 75))
@@ -37,14 +41,18 @@ class Simulation():
         self.airport_surface = pygame.image.load("graphics/DAB.png")
         self.airport_surface = pygame.transform.smoothscale(self.airport_surface, (ui.screen_width * 2/3 - 10, ui.screen_height - 75 -10))
 
-        self.testplane = Plane("White", 100, 100, "A67")
-        self.explosion = pygame.image.load("graphics/explosion.png")
-        self.explosion = pygame.transform.smoothscale(self.explosion, ui.screen.get_size())
+        self.testplane1 = Plane("A67", self.ui.screen, 700, 400)
+        self.testplane2 = Plane("B69", self.ui.screen, 1100, 400)
+        self.planes = pygame.sprite.Group()
+        self.planes.add(self.testplane1)
+        self.planes.add(self.testplane2)
+
+        self.explosions = pygame.sprite.Group()
 
     def determine_boxheight(self, text, font, allowable_width):
         fw, fh = pygame.font.Font.size(font, text)
         num_col = math.ceil(fw/allowable_width)
-        box_height = fh * num_col
+        box_height = fh * num_col + 3
         return box_height
 
     def create_messagebox(self, text, font, allowable_width, screen):
@@ -69,6 +77,8 @@ class Simulation():
         pygame.draw.rect(screen, "White", self.return_button) 
         pygame.draw.rect(screen, "Black", self.return_button, 1, 3)
         screen.blit(self.return_text, self.return_button)
+        screen.blit(self.play_button, (self.ui.screen_width *2/3 + 55, 30))
+        screen.blit(self.pause_button, (self.ui.screen_width *2/3 - 102, 30))
         screen.blit(self.logheader_text, self.logheader_widget)
         screen.blit(self.airport_text, self.airport_widget)
         pygame.draw.rect(screen, "White", self.logbox, 5, 5)
@@ -81,27 +91,24 @@ class Simulation():
 
         self.outgoing_messages.draw(screen)
         self.outgoing_messages.update(0)
-        
-        testplane = self.testplane
-        simbox = self.simbox
-        
-        if not simbox.collidepoint(testplane.rect.topleft):
-            rotated_plane = testplane.move(randint(9,12), randint(4,8))
-        elif not simbox.collidepoint(testplane.rect.bottomright):
-           rotated_plane = testplane.move(-randint(9,12), -randint(4,8))
-        elif not simbox.collidepoint(testplane.rect.topright):
-           rotated_plane = testplane.move(-randint(9,12), randint(4,8))
-        elif not simbox.collidepoint(testplane.rect.bottomleft):
-           rotated_plane = testplane.move(randint(9,12), -randint(6,8))
-        else:
-           rotated_plane = testplane.move(1, 1)
-        screen.blit(rotated_plane, rotated_plane.get_rect(center = testplane.rect.center))
-        testfont = pygame.font.Font(None, 25)
-        planetext = testfont.render(testplane.flightnumber, True, "Blue")
-        screen.blit(planetext, rotated_plane.get_rect(center = testplane.rect.center))
 
-        pygame.display.update()
-       
+        if len(self.planes) > 1:
+            self.planes.sprites()[0].update(1,1)
+            self.planes.sprites()[1].update(-1,1)
+        
+        planes = self.planes.sprites()
+        for i, plane1 in enumerate(planes):
+            for plane2 in planes[i+1:]:
+                if pygame.sprite.collide_mask(plane1, plane2):
+                    plane1.kill()
+                    explosion =Explosion(screen, plane2.rect.x, plane2.rect.y)
+                    self.explosions.add(explosion)
+                    plane2.kill()
+                    self.create_messagebox("PLANE COLLISION DETECTED", self.message_font, self.logoutgoingbox.width, self.ui.screen)
+    
+        self.explosions.draw(screen)
+
+
     def event_handler(self, pg_event, mouse_pos):
         if pg_event.type == pygame.MOUSEBUTTONDOWN:
             ##Click to simulate event that would display message in log box##
@@ -111,6 +118,12 @@ class Simulation():
             if self.return_button.collidepoint(mouse_pos):
                 self.ui.button_sound.play()
                 return Event.GOTO_MAIN_MENU
+            elif self.play_button.get_rect(topleft = (self.ui.screen_width *2/3 + 55, 30)).collidepoint(mouse_pos):
+                self.ui.button_sound.play()
+                self.ui.running = True
+            elif self.pause_button.get_rect(topleft = (self.ui.screen_width *2/3 - 102, 30)).collidepoint(mouse_pos):
+                self.ui.button_sound.play()
+                self.ui.running = False
         return Event.NONE
 
 
@@ -282,11 +295,13 @@ class UserInterface():
         self.clock = pygame.time.Clock()
 
         self.current_ui = None 
+        self.running = True
 
     def render(self):
-        self.current_ui.render()
-        pygame.display.update()
-        self.clock.tick(60)
+        if self.running:
+            self.current_ui.render()
+            pygame.display.update()
+            self.clock.tick(60)
 
     def event_handler(self):
         mouse_pos = pygame.mouse.get_pos()
@@ -300,7 +315,7 @@ class UserInterface():
     
     def transition_state(self, new_state):
         # python's garbage collector takes care of "unloading"
-        if new_state == State.MAIN_MENU:
+        if new_state == State.MAIN_MENU and self.running:
             self.menu_channel.set_volume(0.1)
             self.current_ui = MainMenu(self) 
         elif new_state == State.SETTINGS:
