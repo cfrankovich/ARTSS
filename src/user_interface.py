@@ -105,6 +105,7 @@ class Simulation():
                     self.explosions.add(explosion)
                     plane2.kill()
                     self.create_messagebox("PLANE COLLISION DETECTED", self.message_font, self.logoutgoingbox.width, self.ui.screen)
+                    self.ui.explosion_sound.play()
     
         self.explosions.draw(screen)
 
@@ -280,6 +281,8 @@ class UserInterface():
         self.button_sound.set_volume(0.9)
         self.bg_music = pygame.mixer.Sound("audio/bgmusic.mp3")
         self.bg_music.set_volume(0.1)
+        self.explosion_sound = pygame.mixer.Sound("audio/explosion_sfx.wav")
+        self.explosion_sound.set_volume(0.1)
         self.menu_channel = pygame.mixer.Channel(0)
         self.menu_channel.play(self.bg_music, loops = -1)
 

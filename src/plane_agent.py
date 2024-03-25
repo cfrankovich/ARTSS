@@ -45,5 +45,6 @@ class Plane(pygame.sprite.Sprite):
         planefont = pygame.font.Font(None, 25)
         planetext = planefont.render(self.flightnumber, True, "Blue")
         rotated_plane = self.move(dx, dy)
+        self.mask = pygame.mask.from_surface(rotated_plane)
         self.screen.blit(rotated_plane, rotated_plane.get_rect(center = self.rect.center))
         self.screen.blit(planetext, rotated_plane.get_rect(center = self.rect.center))
