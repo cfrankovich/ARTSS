@@ -47,9 +47,9 @@ def debug_init_winds(samples):
     global winds
     global wind_direction
     global wind_speed
-    winds = [(70, 12) for i in range(15)]
-    winds.extend([(340, 12) for i in range(samples)])
-    #winds = [(wind_direction, wind_speed) for i in range(samples)]
+    #winds = [(70, 12) for i in range(15)]
+    #winds.extend([(340, 12) for i in range(samples)])
+    winds = [(wind_direction, wind_speed) for i in range(samples)]
 
 
 def init_winds(samples):
@@ -117,7 +117,6 @@ class Tile():
 
 
 def get_random_gate(gates_in_use, flight_num):
-    return "B1" 
     gate = random.choice(list(gates.items()))[0]
     char_to_check = "A" if flight_num[:2] == "ER" else "B" # gates B-XX are exclusive to ERU flights 
     while gate in gates_in_use or gate[0] == char_to_check:
@@ -221,6 +220,7 @@ def find_taxiway_path(plane, queue):
     routes, grades = grade_routes(plane, routes, crosswinds, headwinds, queue, temp_rwa) 
     lowest_grade = min(grades) 
     plane.debug_set_grades(grades)
+    return routes
     return routes[grades.index(lowest_grade)]
     plane.debug_set_best_grade_path(routes[grades.index(lowest_grade)])
     return routes

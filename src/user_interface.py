@@ -160,8 +160,9 @@ class Simulation():
         ps = pygame.transform.rotate(self.plane_surface, 25) 
         screen.blit(ps, (WIDTH/2 - ps.get_width() / 2, HEIGHT/2 - ps.get_height() / 2))
 
-        CENTER_X = 550
-        CENTER_Y = 200
+        """
+        CENTER_X = 100
+        CENTER_Y = 100
         pygame.draw.rect(screen, (0, 0, 0), (CENTER_X-60, CENTER_Y, 120, 134), border_radius=10)
         pygame.draw.rect(screen, COMPASS_BG_COLOR, (CENTER_X-56, CENTER_Y, 112, 130), border_radius=8)
         pygame.draw.circle(screen, (0, 0, 0), (CENTER_X, CENTER_Y), 67) 
@@ -189,11 +190,12 @@ class Simulation():
 
         the_time = str(ARTSSClock.ticks)
         draw_text_with_outline(screen, f"Tick #{the_time}", self.font, (CENTER_X, CENTER_Y+112), WIND_ARROW_COLOR, (0, 0, 0), 2, True)
+        """
 
         # draw paths 
         half_grid_space_size = GRID_SPACE_SIZE / 2
         path_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        line_width = 4
+        line_width = 2
         for n, plane in enumerate(plane_queue):
             """
             if self.debug_flag:
@@ -203,11 +205,11 @@ class Simulation():
             else:
                 paths = plane.get_debug_paths()
             """
-            paths = [plane.current_path]
+            paths = plane.get_debug_paths()
+            #paths = [plane.current_path]
             drawn = []
             for j, path in enumerate(paths):
-                #color = get_rainbow_color(len(paths), j) 
-                color = WIND_ARROW_COLOR 
+                color = get_rainbow_color(len(paths), j) 
                 prev = plane.get_map_pos()
                 for i, node in enumerate(path):
                     top_left = (node[0] * GRID_SPACE_SIZE, node[1] * GRID_SPACE_SIZE) 
@@ -223,22 +225,6 @@ class Simulation():
 
                     new_start = start
                     new_end = end
-                    """
-                    line_info = (node, get_line_type(start, end))
-
-                    if line_info in been_drawn:
-                        dup_offset = line_width * been_drawn.count(line_info)
-                        new_start = (start[0] + dup_offset, start[1] + dup_offset) 
-                        new_end = (end[0] + dup_offset, end[1] + dup_offset) 
-
-                    if get_node_type(node) == TileType.RUNWAY: 
-                        if line_info not in temp_drawn and line_info not in been_drawn: 
-                            draw_dashed_line(path_surface, color, new_start, new_end, line_width) 
-                            temp_drawn.append(line_info)
-                    else:
-                        pygame.draw.line(path_surface, color, new_start, new_end, line_width)
-                        temp_drawn.append(line_info)
-                    """
 
                     line_info = f"{start}{end}"
                     if line_info in drawn:
@@ -252,8 +238,6 @@ class Simulation():
                         pygame.draw.line(path_surface, color, new_start, new_end, line_width)
 
                     drawn.append(line_info)
-
-                #been_drawn.extend(temp_drawn) 
 
         rot_path_surface = pygame.transform.rotate(path_surface, 25)
         screen.blit(rot_path_surface, (WIDTH/2 - rot_path_surface.get_width() / 2, HEIGHT / 2 - rot_path_surface.get_height() / 2))
