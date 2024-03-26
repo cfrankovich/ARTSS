@@ -6,19 +6,19 @@ from utils.flight_data_handler import FlightStatus
 from utils.coms import CommunicationType
 from utils.map_handler import init_winds, adjust_wind, debug_init_winds
 
-STARTING_PLANE_COUNT = 1
+STARTING_PLANE_COUNT = 6
 
 
 class ARTSS():
     def __init__(self):
         self.atc_agent = Agent()
         init_plane_queue(STARTING_PLANE_COUNT)
-        #init_winds(300)
-        debug_init_winds(300)
+        init_winds(300)
+        #debug_init_winds(300)
 
     def tick(self):
         ARTSSClock.tick()
-        #adjust_wind()
+        adjust_wind()
         self.address_queue()
         return Event.NONE
     

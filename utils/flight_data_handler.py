@@ -82,6 +82,6 @@ def generate_aircraft_info():
     return {
         "type" : aircraft_type,
         "crosswind_limit" : 12,
-        "required_runway_space" : 5, # num squares required to takeoff and land
+        "required_runway_space" : 8, # num squares required to takeoff and land
         "ticks_per_tile" : 1, # num clock cycles to cover a tile (speed kinda) 
     }

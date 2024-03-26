@@ -24,8 +24,6 @@ class Agent():
             return (f"{fn}, {AIRPORT} Ground, cleared for pushback and engine start, advise ready to taxi.", CommunicationType.PUSHBACK_CLEARANCE)
         if ct == CommunicationType.TAXI_CLEARANCE:
             full_path = find_taxiway_path(plane, get_plane_queue())
-            plane.set_debug_paths(full_path)
-            """
             runway_node = full_path[-4]
             map = get_map()
             runway_number = map[runway_node[0]][runway_node[1]].info
@@ -41,12 +39,14 @@ class Agent():
             while get_node_type(full_path[i]) is TileType.RUNWAY:
                 i -= 1
 
-            plane.runway_path = full_path[i+2:] 
+            print(full_path)
+            plane.runway_path = full_path[i+1:] 
             plane.current_path = full_path[:i+1]
+            print(plane.current_path)
+            print(plane.runway_path)
             print(f"ASSIGNED PLANE PATH: {plane.current_path}")
 
             return (f"{fn}, taxi to runway {runway_number}, via taxiways {taxiways}, hold short of runway {runway_number}.", CommunicationType.TAXI_CLEARANCE)
-            """
             return (f"", CommunicationType.NONE)
         if ct == CommunicationType.HOLDING_SHORT:
             runway_number = plane.flight_data["runway"] 
@@ -67,6 +67,6 @@ class Agent():
         for plane in pq:
             if plane.flight_data["runway"] == runway_number:
                 status_val = abs(plane.get_status().value)
-                if status_val in range(7, 13): 
+                if status_val in range(7, 12): 
                     return False
         return True

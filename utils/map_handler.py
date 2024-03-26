@@ -15,8 +15,8 @@ debug_paths = []
 winds = []
 wind_direction = random.randrange(0, 360) # deg 
 wind_speed = random.randrange(MIN_WIND_SPEED, MAX_WIND_SPEED + 1) # knots 
-wind_direction = 70 
-wind_speed = 14 
+#wind_direction = 70 
+#wind_speed = 14 
 winds.append((wind_direction, wind_speed))
 
 
@@ -37,8 +37,8 @@ def adjust_wind():
     wind_direction = new_wind[0]
     wind_speed = new_wind[1]
 
-    dir = int(np.random.normal(winds[-1][0], 7)) % 360 
-    speed = int(np.random.normal(winds[-1][1], 3))
+    dir = int(np.random.normal(winds[-1][0], 5)) % 360 
+    speed = int(np.random.normal(winds[-1][1], 2))
     speed = max(MIN_WIND_SPEED, min(MAX_WIND_SPEED, speed))
     winds.append((dir, speed))
 
@@ -189,7 +189,7 @@ def get_runway_paths(x, y):
     my = y
     dx = arp[0] - x 
     dy = arp[1] - y 
-    node = map[x][y]
+    node = map[x + dx][y + dy]
 
     while node.type == TileType.RUNWAY: 
         path1.append(node.get_pos())
@@ -201,7 +201,7 @@ def get_runway_paths(x, y):
     my = y
     dx *= -1
     dy *= -1
-    node = map[x][y]
+    node = map[x + dx][y + dy]
 
     while node.type == TileType.RUNWAY: 
         path2.append(node.get_pos())
@@ -216,11 +216,11 @@ def find_taxiway_path(plane, queue):
     plane_ticks_per_tile = plane.aircraft_info["ticks_per_tile"]
     min_runway_required = plane.aircraft_info["required_runway_space"]
     routes = get_all_routes_no_wind(plane.get_pos(), min_runway_required)
-    crosswinds, headwinds, temp_rwa = get_winds(plane_ticks_per_tile, routes)
+    crosswinds, headwinds, temp_rwa = get_winds(plane_ticks_per_tile, routes, queue)
     routes, grades = grade_routes(plane, routes, crosswinds, headwinds, queue, temp_rwa) 
     lowest_grade = min(grades) 
     plane.debug_set_grades(grades)
-    return routes
+    #return routes
     return routes[grades.index(lowest_grade)]
     plane.debug_set_best_grade_path(routes[grades.index(lowest_grade)])
 
@@ -245,7 +245,7 @@ def calculate_headwind(runway_angle_deg, wind_angle_deg, wind_speed):
     return wind_speed * math.cos(angle_diff_rad)
 
 
-def get_winds(ticks_per_tile, routes):
+def get_winds(ticks_per_tile, routes, queue):
     global winds
     crosswinds = []
     headwinds = []
@@ -257,7 +257,13 @@ def get_winds(ticks_per_tile, routes):
         avg_headwind_arr = [] 
         runway_angle = get_runway_angle_from_route(route)
         temp_rwa.append(runway_angle)
-        for node in route:
+        for i in range(len(route)):
+            if is_runway_being_used_at_time(wind_index, queue):
+                wind_index += 1
+                i -= 1
+                continue
+
+            node = route[i] 
             wind_index += ticks_per_tile
             if get_node_type(node) is not TileType.RUNWAY: 
                 continue
@@ -270,8 +276,8 @@ def get_winds(ticks_per_tile, routes):
             avg_crosswind_arr.append(cw)
             avg_headwind_arr.append(hw)
         
-        avg_crosswind = sum(avg_crosswind_arr) // len(avg_crosswind_arr)
-        avg_headwind = sum(avg_headwind_arr) // len(avg_headwind_arr)
+        avg_crosswind = sum(avg_crosswind_arr) // (len(avg_crosswind_arr) + 1)
+        avg_headwind = sum(avg_headwind_arr) // (len(avg_headwind_arr) + 1)
         crosswinds.append(avg_crosswind)
         headwinds.append(avg_headwind)
 
@@ -393,13 +399,13 @@ def grade_routes(plane, routes, crosswinds, headwinds, queue, temp_angles):
 
     # intersections  
     intersections = [get_intersections(route, queue, plane) for route in routes]
-    grades = [ grades[i] + intersections[i] for i in range(len(grades)) ]
+    grades = [ grades[i] + intersections[i] * 20 for i in range(len(grades)) ]
 
     # distance (div for less of a penalty) 
     lengths = [len(route) for route in routes] 
     grades = [ grades[i] + lengths[i] for i in range(len(lengths))]
 
-    pretty_print_data(routes, crosswinds, headwinds, intersections, lengths, grades, temp_angles)
+    #pretty_print_data(routes, crosswinds, headwinds, intersections, lengths, grades, temp_angles)
 
     return routes, grades 
 
@@ -430,7 +436,7 @@ def get_intersections(route, queue, plane):
 
             for i, other_node in enumerate(other_route):
                 if node == other_node and time == other_speed * i:
-                    intersection_count += 1 + other_plane_landing # penalize if intersecting with landing path 
+                    intersection_count += 3 + other_plane_landing # penalize if intersecting with landing path 
 
     return intersection_count
 
@@ -445,3 +451,15 @@ def pretty_print_data(routes, cw, hw, inter, lengths, grades, temp_angles):
     for i in range(len(routes)):
         print(f"ROUTE #{i} :: ANG = {temp_angles[i]} :: CW = {cw[i]} :: HW = {hw[i]} :: INT = {inter[i]} :: LEN = {lengths[i]} :: G = {grades[i]}")
 
+def is_runway_being_used_at_time(tick_num, queue):
+    for plane in queue:
+        ticks_per_tile = plane.aircraft_info["ticks_per_tile"]
+        num_ticks = 0
+        for node in plane.current_path:
+            if get_node_type(node) == TileType.RUNWAY:
+                if num_ticks >= tick_num:
+                    return True
+                num_ticks += 1
+            else:
+                num_ticks += ticks_per_tile
+    return False

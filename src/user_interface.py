@@ -8,8 +8,9 @@ import numpy as np
 import matplotlib as plt
 from utils.logger import ARTSSClock
 from utils.flight_data_handler import FlightStatus
+import random
 
-FPS = 2 
+FPS = 30 
 WIDTH = 1280
 HEIGHT = 720
 GRID_SPACE_SIZE = 20
@@ -111,7 +112,13 @@ def get_red_green_color(amt, idx):
 def get_rainbow_color(amt, idx):
     rainbow_colors_red_to_violet = plt.cm.rainbow(np.linspace(1, 0, amt))
     rainbow_colors_red_to_violet_255 = [(int(color[0]*255), int(color[1]*255), int(color[2]*255)) for color in rainbow_colors_red_to_violet]
-    return rainbow_colors_red_to_violet_255[idx]
+    color =rainbow_colors_red_to_violet_255[idx]
+    color = (
+        min(color[0] + 40, 255),
+        min(color[1] + 40, 255),
+        min(color[2] + 40, 255),
+    )
+    return color
 
 
 def to_screen_xy(node):
@@ -180,20 +187,6 @@ class Simulation():
 
         #screen.blit(self.rot_grid_surface, (WIDTH/2 - self.rot_grid_surface.get_width() / 2, HEIGHT / 2 - self.rot_grid_surface.get_height() / 2))
 
-        self.plane_surface.fill((0, 0, 0, 0))
-        for n, plane in enumerate(plane_queue):
-            #color = get_rainbow_color(n) 
-            plane_img = self.plane_imgs[plane.get_aircraft_type().value - 1] 
-            plane_img = colorize_image(plane_img, WIND_ARROW_COLOR)
-            facing_angle = plane.get_facing_direction().value
-            mx, my = plane.get_map_pos()
-            scale_factor = ((plane.altitude / DEPARTED_ALTITUDE) * (MAX_PLANE_SCALE - 1)) + 1 
-            width = height = GRID_SPACE_SIZE * scale_factor
-            offset = (width - GRID_SPACE_SIZE) // 2
-            x, y = (mx * GRID_SPACE_SIZE - offset, my * GRID_SPACE_SIZE - offset) 
-            plane_img_rot = pygame.transform.rotate(plane_img, facing_angle)
-            plane_img_scaled = pygame.transform.scale(plane_img_rot, (width, height))
-            self.plane_surface.blit(plane_img_scaled, (x, y))
             
         ps = pygame.transform.rotate(self.plane_surface, 25) 
         screen.blit(ps, (WIDTH/2 - ps.get_width() / 2, HEIGHT/2 - ps.get_height() / 2))
@@ -223,24 +216,25 @@ class Simulation():
         rot_rect.center = (CENTER_X, CENTER_Y)
         screen.blit(wind_arrow_rot, rot_rect.topleft)
 
-        draw_text_with_outline(screen, f"{wind[1]} knots", self.font, (CENTER_X, CENTER_Y+97), WIND_ARROW_COLOR, (0, 0, 0), 2, True)
+        draw_text_with_outline(screen, f"{wind[1]} knots", self.font, (CENTER_X, CENTER_Y+82), WIND_ARROW_COLOR, (0, 0, 0), 2, True)
 
         the_time = str(ARTSSClock.ticks)
-        draw_text_with_outline(screen, f"", self.font, (CENTER_X, CENTER_Y+112), WIND_ARROW_COLOR, (0, 0, 0), 2, True)
+        draw_text_with_outline(screen, f"Tick #{the_time}", self.font, (CENTER_X, CENTER_Y+112), WIND_ARROW_COLOR, (0, 0, 0), 2, True)
 
         # draw paths 
         half_grid_space_size = GRID_SPACE_SIZE / 2
         path_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
         line_width = 3
+        drawn = []
         for n, plane in enumerate(plane_queue):
-            #status_text = get_status_text(plane)
-            #text_surface = self.font.render(status_text, True, (0, 0, 0))
-            #text_rect = text_surface.get_rect()
-            #pygame.draw.rect(screen, (0, 0, 0), (CENTER_X-60, CENTER_Y+150, text_rect[2]+18, 48), border_radius=10)
-            #pygame.draw.rect(screen, COMPASS_BG_COLOR, (CENTER_X-56, CENTER_Y+154, text_rect[2]+10, 40), border_radius=8)
-
-            #draw_text_with_outline(screen, f"{status_text}", self.font, (CENTER_X-51, CENTER_Y+164), WIND_ARROW_COLOR, (0, 0, 0), 2, False)
             """
+            status_text = get_status_text(plane)
+            text_surface = self.font.render(status_text, True, (0, 0, 0))
+            text_rect = text_surface.get_rect()
+            pygame.draw.rect(screen, (0, 0, 0), (CENTER_X-60, CENTER_Y+150, text_rect[2]+18, 48), border_radius=10)
+            pygame.draw.rect(screen, COMPASS_BG_COLOR, (CENTER_X-56, CENTER_Y+154, text_rect[2]+10, 40), border_radius=8)
+
+            draw_text_with_outline(screen, f"{status_text}", self.font, (CENTER_X-51, CENTER_Y+164), WIND_ARROW_COLOR, (0, 0, 0), 2, False)
             if self.debug_flag:
                 paths = [plane.debug_best_grade_path] 
             elif self.debug_path_num != -1:
@@ -248,20 +242,11 @@ class Simulation():
             else:
                 paths = plane.get_debug_paths()
             """
-            paths = plane.get_debug_paths()
-            print(paths)
-            #paths = [plane.current_path]
-            grades = plane.get_grades()
-            print(grades)
-            if grades == []:
-                continue
-            drawn = []
+            #paths = plane.get_debug_paths()
+            paths = [plane.current_path]
+            color = plane.color
+            #color = get_rainbow_color(len(plane_queue), n) 
             for j, path in enumerate(paths):
-                #color = get_rainbow_color(len(paths), j) 
-                #color = (255, 255, 255) 
-                print(len(paths))
-                print(len(grades))
-                color = get_red_green_color(len(grades), grades[j])
                 prev = plane.get_map_pos()
                 for i, node in enumerate(path):
                     top_left = (node[0] * GRID_SPACE_SIZE, node[1] * GRID_SPACE_SIZE) 
@@ -294,6 +279,24 @@ class Simulation():
 
         rot_path_surface = pygame.transform.rotate(path_surface, 25)
         screen.blit(rot_path_surface, (WIDTH/2 - rot_path_surface.get_width() / 2, HEIGHT / 2 - rot_path_surface.get_height() / 2))
+
+        self.plane_surface.fill((0, 0, 0, 0))
+        for n, plane in enumerate(plane_queue):
+            if plane.get_status() == FlightStatus.DEPARTED:
+                continue
+            #color = get_rainbow_color(len(plane_queue), n) 
+            color = plane.color
+            plane_img = self.plane_imgs[plane.get_aircraft_type().value - 1] 
+            plane_img = colorize_image(plane_img, color)
+            facing_angle = plane.get_facing_direction().value
+            mx, my = plane.get_map_pos()
+            scale_factor = ((plane.altitude / DEPARTED_ALTITUDE) * (MAX_PLANE_SCALE - 1)) + 1 
+            width = height = GRID_SPACE_SIZE * scale_factor
+            offset = (width - GRID_SPACE_SIZE) // 2
+            x, y = (mx * GRID_SPACE_SIZE - offset, my * GRID_SPACE_SIZE - offset) 
+            plane_img_rot = pygame.transform.rotate(plane_img, facing_angle)
+            plane_img_scaled = pygame.transform.scale(plane_img_rot, (width, height))
+            self.plane_surface.blit(plane_img_scaled, (x, y))
 
         pygame.display.flip()
        

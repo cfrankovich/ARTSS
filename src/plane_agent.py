@@ -1,19 +1,30 @@
 import pygame
 from utils.flight_data_handler import generate_flight_data, FlightStatus, generate_aircraft_info 
 from utils.coms import CommunicationType 
-from utils.map_handler import gates, get_facing_direction_from_gate, Direction, get_adjacent_runway_pos, get_runway_paths
+from utils.map_handler import gates, get_facing_direction_from_gate, Direction, get_adjacent_runway_pos
 from utils.logger import logger
+import matplotlib as plt
+import numpy as np
+import random
 
 AIRPORT = "DAB"
 DEPARTURE_FREQUENCY = "125.800 MHz"
 DEPARTED_ALTITUDE = 1000 # ft
 gates_in_use = []
 plane_queue = [] 
+color_index = 0
 
 
-def is_next_node_occupied(node):
-    for plane in plane_queue:
-        if plane.get_map_pos() == node:
+def create_new_plane():
+    global plane_queue
+    plane_queue.append(Plane())
+
+
+def is_next_node_occupied(node, p):
+    for plane in plane_queue: 
+        if plane.flight_data["flight_number"] == p.flight_data["flight_number"]:
+            continue 
+        if plane.get_map_pos() == node and plane.get_status() is not FlightStatus.DEPARTED:
             return True
     return False
 
@@ -27,6 +38,18 @@ def init_plane_queue(num_planes):
     for _ in range(num_planes):
         plane_queue.append(Plane())
 
+def get_rainbow_color(amt, idx):
+    global color_index
+    rainbow_colors_red_to_violet = plt.cm.rainbow(np.linspace(1, 0, amt))
+    rainbow_colors_red_to_violet_255 = [(int(color[0]*255), int(color[1]*255), int(color[2]*255)) for color in rainbow_colors_red_to_violet]
+    color = rainbow_colors_red_to_violet_255[color_index]
+    color_index = (color_index + 1) % 10
+    color = (
+        min(color[0] + 40, 255),
+        min(color[1] + 40, 255),
+        min(color[2] + 40, 255),
+    )
+    return color
 
 class Plane(pygame.sprite.Sprite):
     def __init__(self):
@@ -45,6 +68,7 @@ class Plane(pygame.sprite.Sprite):
         self.debug_best_grade_path = []
         self.ticks = 0
         self.grades = []
+        self.color = get_rainbow_color(10, 'lasdjfoasd8fu9as8df idc blajhablhahhhh')
 
     def get_grades(self):
         return self.grades
@@ -98,7 +122,7 @@ class Plane(pygame.sprite.Sprite):
             self.send_com(atc, (f"Runway {runway_number}, lining up and waiting, {fn}.", CommunicationType.LINE_UP))
         elif ct == CommunicationType.TAKEOFF_CLEARANCE:
             runway_number = self.flight_data["runway"] 
-            self.current_path.extend(self.runway_path)
+            self.current_path = self.runway_path
             self.aircraft_info["ticks_per_tile"] = 1 # speedy takeoff
             self.d_altitude = DEPARTED_ALTITUDE / len(self.current_path)
             self.set_status(FlightStatus.AIRBORNE)
@@ -137,19 +161,28 @@ class Plane(pygame.sprite.Sprite):
         if status == FlightStatus.PUSHBACK_IN_PROGRESS:
             self.facing = Direction((self.facing.value + 180) % 360)
             self.set_status(FlightStatus.WAITING_FOR_TAXI_CLEARANCE)
-        elif status.value >= 5 and status.value <= 12: # taxiing to departure
+        elif status.value >= 5 and status.value < 12: # taxiing to departure
+            #if status.value 
             try:
                 self.move_on_path()
                 if status == FlightStatus.CLIMBING:
                     self.altitude += self.d_altitude
                     if self.altitude >= DEPARTED_ALTITUDE:
+                        create_new_plane()
+                        if len(plane_queue) > 11:
+                            plane_queue.pop(0)
                         self.set_status(FlightStatus.DEPARTED)
             except:
                 new_status = self.get_next_status(status)
+                if new_status == FlightStatus.DEPARTED:
+                    create_new_plane()
+                    if len(plane_queue) > 11:
+                        plane_queue.pop(0)
                 self.set_status(new_status)
         if status == FlightStatus.DEPARTED:
-            global plane_queue 
-            plane_queue.remove(self)
+            pass
+            #global plane_queue 
+            #plane_queue.remove(self)
 
     def get_direction_of_next_node(self, node):
         dx = node[0] - self.map_x
@@ -188,10 +221,13 @@ class Plane(pygame.sprite.Sprite):
         return None 
 
     def move_on_path(self):
+        if is_next_node_occupied(self.current_path[0], self):
+            return
         node = self.current_path.pop(0)
         self.map_x = node[0]
         self.map_y = node[1]
-        self.facing = self.get_direction_of_next_node(self.current_path[0])
+        next_face = self.get_direction_of_next_node(self.current_path[0])
+        self.facing = self.facing if next_face is None else next_face 
         
     def get_next_status(self, status):
         try:
