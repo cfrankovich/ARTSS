@@ -39,12 +39,8 @@ class Agent():
             while get_node_type(full_path[i]) is TileType.RUNWAY:
                 i -= 1
 
-            print(full_path)
             plane.runway_path = full_path[i+1:] 
             plane.current_path = full_path[:i+1]
-            print(plane.current_path)
-            print(plane.runway_path)
-            print(f"ASSIGNED PLANE PATH: {plane.current_path}")
 
             return (f"{fn}, taxi to runway {runway_number}, via taxiways {taxiways}, hold short of runway {runway_number}.", CommunicationType.TAXI_CLEARANCE)
             return (f"", CommunicationType.NONE)
