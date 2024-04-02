@@ -148,7 +148,7 @@ def draw_text_with_outline(surface, text, font, pos, text_color, outline_color, 
     surface.blit(text_surface, pos)
 
 
-class Simulation():
+class Airport():
     def __init__(self, ui):
         self.ui = ui
         airport_image = pygame.image.load("graphics/sim_bg_demo_no_labels.png")
@@ -300,30 +300,6 @@ class Simulation():
 
         pygame.display.flip()
        
-    def event_handler(self, pg_event, mouse_pos):
-        if pg_event.type == pygame.KEYUP:
-            try:
-                value = int(pygame.key.name(pg_event.key).title())
-            except:
-                value = -1 
-            if pg_event.key == pygame.K_RETURN:
-                self.debug_flag = not self.debug_flag
-                self.debug_path_num = -1
-            elif value >= 0 and value <= 9: 
-                self.debug_flag = False
-                self.debug_path_num = value 
-            elif pg_event.key == pygame.K_i:
-                self.debug_flag = False
-                self.debug_path_num += 1 
-            elif pg_event.key == pygame.K_o:
-                self.debug_flag = False
-                self.debug_path_num -= 1 
-            elif pg_event.key == pygame.K_r:
-                self.debug_flag = False
-                self.debug_path_num = -1
-        return Event.NONE
-
-
 class MainMenu():
     def __init__(self, ui):
         self.ui = ui
