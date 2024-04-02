@@ -2,10 +2,14 @@ from src.user_interface import UserInterface
 from src.sim import ARTSS
 from utils.states import State, Event, TRANSITION_TABLE 
 from utils.login import check_key
+from utils.map_handler import load_map
+from utils.logger import ARTSSClock
 
+load_map()
 ui = UserInterface()
 sim = ARTSS()
-current_state = State.MAIN_MENU
+ARTSSClock.start_time = "1530" # 3:30pm
+current_state = State.SIMULATION
 ui.transition_state(current_state)
 
 while current_state != State.QUIT:
