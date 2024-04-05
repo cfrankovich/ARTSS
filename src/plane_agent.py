@@ -5,7 +5,6 @@ from utils.map_handler import gates, get_facing_direction_from_gate, Direction, 
 from utils.logger import logger
 import matplotlib as plt
 import numpy as np
-import random
 
 AIRPORT = "DAB"
 DEPARTURE_FREQUENCY = "125.800 MHz"

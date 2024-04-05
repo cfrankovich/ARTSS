@@ -9,7 +9,7 @@ load_map()
 ui = UserInterface()
 sim = ARTSS()
 ARTSSClock.start_time = "1530" # 3:30pm
-current_state = State.SIMULATION
+current_state = State.MAIN_MENU
 ui.transition_state(current_state)
 
 while current_state != State.QUIT:

@@ -5,13 +5,11 @@ import random
 from utils.states import State, Event 
 from utils.map_handler import TileType, get_map, get_node_type, get_wind_info, MIN_WIND_SPEED, MAX_WIND_SPEED
 from .plane_agent import DEPARTED_ALTITUDE, plane_queue
-import math
 import numpy as np 
 import matplotlib as plt
 from utils.logger import ARTSSClock
 from utils.flight_data_handler import FlightStatus
-import random
-from src.message_box import MessageBox
+from .message_box import MessageBox
 
 FPS = 30 
 WIDTH = 1280
@@ -25,6 +23,9 @@ COMPASS_BG_COLOR = (27, 27, 37)
 #LOWER_COMPASS_BG_COLOR = (95, 95, 117)
 LOWER_COMPASS_BG_COLOR = (0, 0, 0)
 COMPASS_DIR_COLOR = (190, 180, 180)
+
+incoming_coms = ""
+outgoing_coms = ""
 
 def get_status_text(plane):
     status = plane.get_status()
@@ -149,6 +150,12 @@ def draw_text_with_outline(surface, text, font, pos, text_color, outline_color, 
 
     text_surface = font.render(text, True, text_color)
     surface.blit(text_surface, pos)
+
+
+def draw_rect_alpha(surface, color, rect):
+    shape_surf = pygame.Surface(pygame.Rect(rect).size, pygame.SRCALPHA)
+    pygame.draw.rect(shape_surf, color, shape_surf.get_rect(), 4, 4)
+    surface.blit(shape_surf, rect)
 
 
 class ARTSSCanvas():
@@ -299,6 +306,9 @@ class ARTSSCanvas():
             plane_img_rot = pygame.transform.rotate(plane_img, facing_angle)
             plane_img_scaled = pygame.transform.scale(plane_img_rot, (width, height))
             self.plane_surface.blit(plane_img_scaled, (x, y))
+            planefont = pygame.font.Font(None, 18)
+            planetext = planefont.render(plane.flight_data["flight_number"], True, color)
+            self.plane_surface.blit(planetext, (x - 8, y - 8))
 
 
 class Simulation ():
@@ -321,9 +331,11 @@ class Simulation ():
         self.logheader_widget = self.logheader_text.get_rect(center = (ui.screen_width/6, 50))
         self.logbox = pygame.Rect((0, 75), (ui.screen_width/3, ui.screen_height - 75))
         self.logoutgoing_text = self.menufont.render("Outgoing", True, "Blue")
+        self.logoutgoing_text.set_alpha(127)
         self.logoutgoing_widget = self.logoutgoing_text.get_rect(center = (ui.screen_width/6 - 5, 95))
         self.logoutgoingbox = pygame.Rect((0, 115), (ui.screen_width/3, ui.screen_height/2 - 115))
         self.logincoming_text = self.menufont.render("Incoming", True, "Green")
+        self.logoutgoing_text.set_alpha(127)
         self.logincoming_widget = self.logincoming_text.get_rect(center = (ui.screen_width/6 - 5, ui.screen_height/2 + 20))
         self.logincomingbox = pygame.Rect((0, ui.screen_height/2 + 40), (ui.screen_width/3, ui.screen_height - 75))
         
@@ -349,14 +361,13 @@ class Simulation ():
             self.outgoing_messages.sprites()[0].kill()
             self.outgoing_messages.update(-dy)
             current_y = self.outgoing_messages.sprites()[len(self.outgoing_messages) - 1].rect.bottom
-        message = MessageBox("Black", allowable_width -  10, box_height, self.logoutgoingbox.topleft[0] + 5, current_y, screen, text)
+        message = MessageBox(allowable_width -  10, box_height, self.logoutgoingbox.topleft[0] + 5, current_y, screen, text)
         self.outgoing_messages.add(message)
 
     def render(self):
         self.artss_canvas.render()
 
         screen = self.ui.screen
-        #screen.fill((0, 0, 0))
 
         pygame.draw.rect(screen, "White", self.return_button) 
         pygame.draw.rect(screen, "Black", self.return_button, 1, 3)
@@ -364,12 +375,10 @@ class Simulation ():
         screen.blit(self.play_button, (1125, 240))
         screen.blit(self.pause_button, (1190, 240))
         screen.blit(self.logheader_text, self.logheader_widget)
-        pygame.draw.rect(screen, "White", self.logbox, 5, 5)
-        #pygame.draw.rect(screen, "White", self.simbox, 5, 5)
+        draw_rect_alpha(screen, (255,255,255,127) , self.logbox)
         screen.blit(self.logoutgoing_text, self.logoutgoing_widget)
-        pygame.draw.rect(screen, "White", self.logoutgoingbox, 3, 2)
+        draw_rect_alpha(screen, (255,255,255,127), self.logincomingbox)
         screen.blit(self.logincoming_text, self.logincoming_widget)
-        pygame.draw.rect(screen, "White", self.logincomingbox, 3, 2)
 
         self.outgoing_messages.draw(screen)
         self.outgoing_messages.update(0)
@@ -380,16 +389,17 @@ class Simulation ():
     def event_handler(self, pg_event, mouse_pos):
         if pg_event.type == pygame.MOUSEBUTTONDOWN:
             ##Click to simulate event that would display message in log box##
+            the_time = str(ARTSSClock.ticks)
             textlist = ["This is some random test text to test the text wrapping ability of text for testing. The more the test text, the better the testing.", "The better the testing, the better the test. The better the test...", "Some more random test text for testing"]
-            self.create_messagebox(random.choices(textlist)[0], self.message_font, self.logoutgoingbox.width, self.ui.screen)
+            self.create_messagebox(f"Tick #{the_time}: " + random.choices(textlist)[0], self.message_font, self.logoutgoingbox.width, self.ui.screen)
             ##-------------------------------------------------------------##
             if self.return_button.collidepoint(mouse_pos):
                 self.ui.button_sound.play()
                 return Event.GOTO_MAIN_MENU
-            elif self.play_button.get_rect(topleft = (self.ui.screen_width *2/3 + 55, 30)).collidepoint(mouse_pos):
+            elif self.play_button.get_rect(topleft = (1125, 240)).collidepoint(mouse_pos):
                 self.ui.button_sound.play()
                 self.ui.running = True
-            elif self.pause_button.get_rect(topleft = (self.ui.screen_width *2/3 - 102, 30)).collidepoint(mouse_pos):
+            elif self.pause_button.get_rect(topleft = (1190, 240)).collidepoint(mouse_pos):
                 self.ui.button_sound.play()
                 self.ui.running = False
         return Event.NONE
@@ -598,17 +608,15 @@ class UserInterface():
                 self.screen = pygame.display.set_mode(flags=pygame.FULLSCREEN)
                 self.screen_width, self.screen_height = self.screen.get_size()
                 self.fullscreen_setting = True
-                settingline = "Fullscreen = True\n"
                 with open("settings.txt","w+") as f:
-                    f.write(settingline)
+                    f.write("Fullscreen = True\n")
                 self.current_ui = Settings(self)
             elif self.fullscreen_setting:
                 self.screen = pygame.display.set_mode((1200, 800))
                 self.screen_width, self.screen_height = self.screen.get_size()
                 self.fullscreen_setting = False
-                settingline = "Fullscreen = False\n"
                 with open("settings.txt","w+") as f:
-                    f.write(settingline)
+                    f.write("Fullscreen = False\n")
                 self.current_ui = Settings(self)
         elif new_state == State.SIMULATION:
             self.menu_channel.set_volume(0)
