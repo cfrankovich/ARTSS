@@ -47,7 +47,6 @@ class MessageBox(pygame.sprite.Sprite):
     def draw_borders_and_text(self):
         message_font = pygame.font.Font(None, 25)
         self.draw_rect_alpha(self.screen, (0,0,255,127), self.rect)
-        # pygame.draw.rect(self.screen, "Blue", self.rect, 3, 3)
         self.draw_text(self.screen, self.text, "Blue", self.rect, message_font, True)
 
     def update(self, dy):

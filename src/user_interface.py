@@ -11,6 +11,7 @@ from utils.logger import ARTSSClock
 from utils.flight_data_handler import FlightStatus
 from .message_box import MessageBox
 
+
 FPS = 30 
 WIDTH = 1280
 HEIGHT = 720
@@ -398,10 +399,10 @@ class Simulation ():
                 return Event.GOTO_MAIN_MENU
             elif self.play_button.get_rect(topleft = (1125, 240)).collidepoint(mouse_pos):
                 self.ui.button_sound.play()
-                self.ui.running = True
+                ARTSSClock.setRunning(True)
             elif self.pause_button.get_rect(topleft = (1190, 240)).collidepoint(mouse_pos):
                 self.ui.button_sound.play()
-                self.ui.running = False
+                ARTSSClock.setRunning(False)
         return Event.NONE
 
 
@@ -575,7 +576,6 @@ class UserInterface():
         self.clock = pygame.time.Clock()
 
         self.current_ui = None 
-        self.running = True
 
     def render(self):
         self.current_ui.render()
@@ -594,15 +594,18 @@ class UserInterface():
     
     def transition_state(self, new_state):
         # python's garbage collector takes care of "unloading"
-        if new_state == State.MAIN_MENU and self.running:
+        if new_state == State.MAIN_MENU:
             self.menu_channel.set_volume(0.1)
-            self.current_ui = MainMenu(self) 
+            self.current_ui = MainMenu(self)
+            ARTSSClock.setRunning(False) 
         elif new_state == State.SETTINGS:
             self.menu_channel.set_volume(0.1)
             self.current_ui = Settings(self)
+            ARTSSClock.setRunning(False) 
         elif new_state == State.LOGIN:
             self.menu_channel.set_volume(0.1)
             self.current_ui = Login(self)
+            ARTSSClock.setRunning(False) 
         elif new_state == State.FULLSCREEN:
             if not self.fullscreen_setting:
                 self.screen = pygame.display.set_mode(flags=pygame.FULLSCREEN)
@@ -621,6 +624,7 @@ class UserInterface():
         elif new_state == State.SIMULATION:
             self.menu_channel.set_volume(0)
             self.current_ui = Simulation(self)
+            ARTSSClock.setRunning(True)
 
     def quit(self):
         pygame.mixer.quit()

@@ -6,9 +6,11 @@ class ARTSSClock():
     TICKS_PER_MINUTE = 1
     start_time = "0000" 
     ticks = 0 
+    Running = False
     
     def tick():
-        ARTSSClock.ticks += 1
+        if ARTSSClock.Running:
+            ARTSSClock.ticks += 1
 
     def get_fancy_time():
         tick_minutes = ARTSSClock.ticks / ARTSSClock.TICKS_PER_MINUTE 
@@ -18,6 +20,8 @@ class ARTSSClock():
         str_mins = f"0{minutes}" if minutes < 10 else f"{minutes}"
         return f"{int(hours)}:{str_mins}" 
 
+    def setRunning(status):
+        ARTSSClock.Running = status
 
 class Logger():
     def __init__(self):

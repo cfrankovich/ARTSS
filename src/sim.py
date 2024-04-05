@@ -8,7 +8,6 @@ from utils.map_handler import init_winds, adjust_wind, debug_init_winds
 
 STARTING_PLANE_COUNT = 6
 
-
 class ARTSS():
     def __init__(self):
         self.atc_agent = Agent()
@@ -17,10 +16,11 @@ class ARTSS():
         #debug_init_winds(300)
 
     def tick(self):
-        ARTSSClock.tick()
-        adjust_wind()
-        self.address_queue()
-        return Event.NONE
+        if ARTSSClock.Running:
+            ARTSSClock.tick()
+            adjust_wind()
+            self.address_queue()
+            return Event.NONE
     
     def address_queue(self):
         for plane in plane_queue:
