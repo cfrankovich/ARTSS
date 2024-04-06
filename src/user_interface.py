@@ -153,9 +153,14 @@ def draw_text_with_outline(surface, text, font, pos, text_color, outline_color, 
     surface.blit(text_surface, pos)
 
 
-def draw_rect_alpha(surface, color, rect):
+def draw_rect_alpha(surface, color, rect, borders=True, text=None):
     shape_surf = pygame.Surface(pygame.Rect(rect).size, pygame.SRCALPHA)
-    pygame.draw.rect(shape_surf, color, shape_surf.get_rect(), 4, 4)
+    if borders:
+        pygame.draw.rect(shape_surf, color, shape_surf.get_rect(), 4, 4)
+    else:
+        pygame.draw.rect(shape_surf, color, shape_surf.get_rect())
+    if text is not None:
+        surface.blit(text, rect)
     surface.blit(shape_surf, rect)
 
 
@@ -316,10 +321,13 @@ class Simulation ():
     def __init__(self, ui):
         self.ui = ui
         self.artss_canvas = ARTSSCanvas(ui)
-        self.message_font = pygame.font.Font(None, 25)
-        self.menufont = pygame.font.Font(None, 40)
-        self.titlefont= pygame.font.Font(None, 60)
 
+        self.message_font = pygame.font.Font(None, 25)
+        self.menufont = pygame.font.SysFont("britannic", 40)
+        self.titlefont= pygame.font.SysFont("britannic", 55)
+        self.color_not_hovering = pygame.Color(255,255,255,215)
+        self.color_hovering = pygame.Color(128,128,128,215)
+        self.return_box_color = self.color_not_hovering
         self.titletext = self.titlefont.render("Simulation", True, "White")
         self.titletext_widget = self.titletext.get_rect(midtop = (ui.screen_width/2, 0))
         self.return_text = self.menufont.render("<--Return", True, "Black")
@@ -341,14 +349,18 @@ class Simulation ():
         self.logincomingbox = pygame.Rect((0, ui.screen_height/2 + 40), (ui.screen_width/3, ui.screen_height - 75))
         
         self.outgoing_messages = pygame.sprite.Group()
-
-        self.airport_text = self.menufont.render("Airport", True, "White")
-        self.simbox = pygame.Rect((ui.screen_width/3, 75), (ui.screen_width * 2/3, ui.screen_height - 75))
+    
+    def change_button_color(self):
+        mouse_pos = pygame.mouse.get_pos()
+        if self.return_button.collidepoint(mouse_pos):
+            self.return_box_color = self.color_hovering
+        else:
+            self.return_box_color = self.color_not_hovering
 
     def determine_boxheight(self, text, font, allowable_width):
         fw, fh = pygame.font.Font.size(font, text)
-        num_col = math.ceil(fw/allowable_width)
-        box_height = fh * num_col + 3
+        num_row = math.ceil(fw/allowable_width)
+        box_height = fh * num_row + 3
         return box_height
 
     def create_messagebox(self, text, font, allowable_width, screen):
@@ -366,25 +378,24 @@ class Simulation ():
         self.outgoing_messages.add(message)
 
     def render(self):
-        self.artss_canvas.render()
-
         screen = self.ui.screen
-
-        pygame.draw.rect(screen, "White", self.return_button) 
+        self.artss_canvas.render()
+    
+        self.change_button_color()
+        draw_rect_alpha(screen, self.return_box_color, self.return_button, False)
         pygame.draw.rect(screen, "Black", self.return_button, 1, 3)
         screen.blit(self.return_text, self.return_button)
         screen.blit(self.play_button, (1125, 240))
         screen.blit(self.pause_button, (1190, 240))
         screen.blit(self.logheader_text, self.logheader_widget)
         draw_rect_alpha(screen, (255,255,255,127) , self.logbox)
+        draw_rect_alpha(screen, (255,255,255,127), self.logoutgoingbox)
         screen.blit(self.logoutgoing_text, self.logoutgoing_widget)
         draw_rect_alpha(screen, (255,255,255,127), self.logincomingbox)
         screen.blit(self.logincoming_text, self.logincoming_widget)
 
         self.outgoing_messages.draw(screen)
         self.outgoing_messages.update(0)
-        
-        pygame.display.flip()
 
 
     def event_handler(self, pg_event, mouse_pos):
@@ -409,10 +420,14 @@ class Simulation ():
 class MainMenu():
     def __init__(self, ui):
         self.ui = ui
-
-        menu_font = pygame.font.Font(None, 40)
-        menu_titlefont = pygame.font.Font(None, 60)
-
+        
+        menu_font = pygame.font.SysFont("britannic", 40)
+        menu_titlefont = pygame.font.SysFont("britannic", 55)
+        self.color_not_hovering = pygame.Color(255,255,255,215)
+        self.color_hovering = pygame.Color(128,128,128,215)
+        self.start_box_color = self.color_not_hovering
+        self.settings_box_color = self.color_not_hovering
+        self.exit_box_color = self.color_not_hovering
         self.background = pygame.image.load("graphics/mainmenu.png")
         self.background = pygame.transform.smoothscale(self.background, ui.screen.get_size())
         self.menu_text = menu_titlefont.render("Air Runway and Taxiway Simulation System", True, "Black")
@@ -424,19 +439,36 @@ class MainMenu():
         self.exit_text = menu_font.render("Exit", True, "Black")
         self.exit_button = self.exit_text.get_rect(center = (ui.screen_width/2, ui.screen_height*3/4))
 
+    def change_button_color(self):
+        mouse_pos = pygame.mouse.get_pos()
+        if self.start_button.collidepoint(mouse_pos):
+            self.start_box_color = self.color_hovering
+        else:
+            self.start_box_color = self.color_not_hovering
+        if self.settings_button.collidepoint(mouse_pos):
+            self.settings_box_color = self.color_hovering
+        else:
+            self.settings_box_color = self.color_not_hovering
+        if self.exit_button.collidepoint(mouse_pos):
+            self.exit_box_color = self.color_hovering
+        else:
+            self.exit_box_color = self.color_not_hovering
+
     def render(self):
         screen = self.ui.screen
+
         screen.blit(self.background, (0, 0)) 
-        pygame.draw.rect(screen, "White", self.menu_widget)
+        draw_rect_alpha(screen,(255,255,255,225), self.menu_widget, False)
         pygame.draw.rect(screen, "Black", self.menu_widget, 1, 3)
         screen.blit(self.menu_text, self.menu_widget)
-        pygame.draw.rect(screen, "White", self.start_button) 
+        self.change_button_color()
+        draw_rect_alpha(screen, self.start_box_color, self.start_button, False)
         pygame.draw.rect(screen, "Black", self.start_button, 1, 3)
         screen.blit(self.start_text, self.start_button)
-        pygame.draw.rect(screen, "White", self.settings_button) 
+        draw_rect_alpha(screen, self.settings_box_color, self.settings_button, False)
         pygame.draw.rect(screen, "Black", self.settings_button, 1, 3)
         screen.blit(self.settings_text, self.settings_button)
-        pygame.draw.rect(screen, "White", self.exit_button) 
+        draw_rect_alpha(screen, self.exit_box_color, self.exit_button, False)
         pygame.draw.rect(screen, "Black", self.exit_button, 1, 3)
         screen.blit(self.exit_text, self.exit_button)
 
@@ -458,9 +490,12 @@ class Settings():
     def __init__(self, ui):
         self.ui = ui
 
-        menu_font = pygame.font.Font(None, 40)
-        menu_titlefont = pygame.font.Font(None, 60)
-
+        menu_font = pygame.font.SysFont("britannic", 40)
+        menu_titlefont = pygame.font.SysFont("britannic", 55)
+        self.color_not_hovering = pygame.Color(255,255,255,215)
+        self.color_hovering = pygame.Color(128,128,128,215)
+        self.return_box_color = self.color_not_hovering
+        self.toggle_box_color = self.color_not_hovering
         self.background = pygame.image.load("graphics/settingsgear.png")
         self.background = pygame.transform.smoothscale(self.background, self.ui.screen.get_size())
         self.text = menu_titlefont.render("Settings", True, "Black")
@@ -469,18 +504,32 @@ class Settings():
         self.fullscreen_button = self.fullscreen_text.get_rect(center = (ui.screen_width/2, ui.screen_height/2))
         self.return_text = menu_font.render("<--Return", True, "Black")
         self.return_button = self.return_text.get_rect(topleft = (0,0))
-
+    
+    def change_button_color(self):
+        mouse_pos = pygame.mouse.get_pos()
+        if self.return_button.collidepoint(mouse_pos):
+            self.return_box_color = self.color_hovering
+        else:
+            self.return_box_color = self.color_not_hovering
+        if self.fullscreen_button.collidepoint(mouse_pos):
+            self.toggle_box_color = self.color_hovering
+        else:
+            self.toggle_box_color = self.color_not_hovering
+    
     def render(self):
-        self.ui.screen.blit(self.background, (0,0))
-        pygame.draw.rect(self.ui.screen, "White", self.settings_widget)
-        pygame.draw.rect(self.ui.screen, "Black", self.settings_widget, 1, 3)
-        self.ui.screen.blit(self.text, self.settings_widget)
-        pygame.draw.rect(self.ui.screen, "White", self.fullscreen_button) 
-        pygame.draw.rect(self.ui.screen, "Black", self.fullscreen_button, 1, 3)
-        self.ui.screen.blit(self.fullscreen_text, self.fullscreen_button)
-        pygame.draw.rect(self.ui.screen, "White", self.return_button) 
-        pygame.draw.rect(self.ui.screen, "Black", self.return_button, 1, 3)
-        self.ui.screen.blit(self.return_text, self.return_button)
+        screen = self.ui.screen
+
+        screen.blit(self.background, (0,0))
+        draw_rect_alpha(screen,(255,255,255,225), self.settings_widget, False)
+        pygame.draw.rect(screen, "Black", self.settings_widget, 1, 3)
+        screen.blit(self.text, self.settings_widget)
+        self.change_button_color()
+        draw_rect_alpha(screen, self.toggle_box_color, self.fullscreen_button, False)
+        pygame.draw.rect(screen, "Black", self.fullscreen_button, 1, 3)
+        screen.blit(self.fullscreen_text, self.fullscreen_button)
+        draw_rect_alpha(screen, self.return_box_color, self.return_button, False)
+        pygame.draw.rect(screen, "Black", self.return_button, 1, 3)
+        screen.blit(self.return_text, self.return_button)
 
     def event_handler(self, pg_event, mouse_pos):
         if pg_event.type == pygame.MOUSEBUTTONDOWN:
@@ -497,15 +546,17 @@ class Login():
     def __init__(self, ui):
         self.ui = ui
 
-        self.menu_font = pygame.font.Font(None, 40)
-        menu_titlefont = pygame.font.Font(None, 60)
-
+        self.menu_font = pygame.font.SysFont("britannic", 40)
+        menu_titlefont = pygame.font.SysFont("britannic", 55)
+        self.color_not_hovering = pygame.Color(255,255,255,215)
+        self.color_hovering = pygame.Color(128,128,128,215)
+        self.return_box_color = self.color_not_hovering
         self.background = pygame.image.load("graphics/login.png")
         self.background = pygame.transform.smoothscale(self.background, ui.screen.get_size())
         self.text = menu_titlefont.render("Login", True, "Black")
         self.login_widget = self.text.get_rect(midtop = (ui.screen_width/2, 0))
         self.key_text = self.menu_font.render("Enter Key", True, "Black")
-        self.key_input_box = pygame.Rect(100, 50, 540, 32)
+        self.key_input_box = pygame.Rect(100, 75, 540, 45)
         self.color_inactive = pygame.Color("White")
         self.color_active = pygame.Color("Light Gray")
         self.key_input_box_color = self.color_inactive
@@ -513,19 +564,29 @@ class Login():
         self.key_input_text = ''
         self.return_text = self.menu_font.render("<--Return", True, "Black")
         self.return_button = self.return_text.get_rect(topleft = (0,0))
+    
+    def change_button_color(self):
+        mouse_pos = pygame.mouse.get_pos()
+        if self.return_button.collidepoint(mouse_pos):
+            self.return_box_color = self.color_hovering
+        else:
+            self.return_box_color = self.color_not_hovering
 
     def render(self):
-        self.ui.screen.blit(self.background, (0,0))
-        pygame.draw.rect(self.ui.screen, "White", self.login_widget)
-        pygame.draw.rect(self.ui.screen, "Black", self.login_widget, 1, 3)
-        self.ui.screen.blit(self.text, self.login_widget)
-        pygame.draw.rect(self.ui.screen, self.key_input_box_color, self.key_input_box)
-        pygame.draw.rect(self.ui.screen, "Black", self.key_input_box, 1, 3)
+        screen = self.ui.screen
+
+        screen.blit(self.background, (0,0))
+        draw_rect_alpha(screen,(255,255,255,225), self.login_widget, False)
+        pygame.draw.rect(screen, "Black", self.login_widget, 1, 3)
+        screen.blit(self.text, self.login_widget)
+        pygame.draw.rect(screen, self.key_input_box_color, self.key_input_box)
+        pygame.draw.rect(screen, "Black", self.key_input_box, 1, 3)
         key_text_surface = self.menu_font.render(self.key_input_text, True, "Black")
-        self.ui.screen.blit(key_text_surface, (self.key_input_box.x+5, self.key_input_box.y+5))
-        pygame.draw.rect(self.ui.screen, "White", self.return_button) 
-        pygame.draw.rect(self.ui.screen, "Black", self.return_button, 1, 3)
-        self.ui.screen.blit(self.return_text, self.return_button)
+        screen.blit(key_text_surface, (self.key_input_box.x+5, self.key_input_box.y+5))
+        self.change_button_color()
+        draw_rect_alpha(screen, self.return_box_color, self.return_button, False)
+        pygame.draw.rect(screen, "Black", self.return_button, 1, 3)
+        screen.blit(self.return_text, self.return_button)
 
     def event_handler(self, pg_event, mouse_pos):
         if pg_event.type == pygame.MOUSEBUTTONDOWN:
@@ -537,7 +598,6 @@ class Login():
             else:
                 self.input_active = False
             self.key_input_box_color = self.color_active if self.input_active else self.color_inactive
-
         if pg_event.type == pygame.KEYDOWN:
             if self.input_active:
                 if pg_event.key == pygame.K_RETURN:
@@ -564,7 +624,6 @@ class UserInterface():
         self.menu_channel = pygame.mixer.Channel(0)
         self.menu_channel.play(self.bg_music, loops = -1)
 
-        
         with open('settings.txt', 'r') as f:
             settingsdata = f.read().strip()
         self.fullscreen_setting = ast.literal_eval(settingsdata.split('=')[1].strip())
