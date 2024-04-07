@@ -5,6 +5,7 @@ from utils.login import check_key
 from utils.map_handler import load_map
 from utils.logger import ARTSSClock
 
+
 load_map()
 ui = UserInterface()
 sim = ARTSS()

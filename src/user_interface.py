@@ -1,7 +1,6 @@
 import pygame
 import ast
 import math
-import random
 from utils.states import State, Event 
 from utils.map_handler import TileType, get_map, get_node_type, get_wind_info, MIN_WIND_SPEED, MAX_WIND_SPEED
 from .plane_agent import DEPARTED_ALTITUDE, plane_queue
@@ -10,9 +9,10 @@ import matplotlib as plt
 from utils.logger import ARTSSClock
 from utils.flight_data_handler import FlightStatus
 from .message_box import MessageBox
+from utils.logger import Logger
 
 
-FPS = 30 
+FPS = 30
 WIDTH = 1280
 HEIGHT = 720
 GRID_SPACE_SIZE = 20
@@ -25,8 +25,6 @@ COMPASS_BG_COLOR = (27, 27, 37)
 LOWER_COMPASS_BG_COLOR = (0, 0, 0)
 COMPASS_DIR_COLOR = (190, 180, 180)
 
-incoming_coms = ""
-outgoing_coms = ""
 
 def get_status_text(plane):
     status = plane.get_status()
@@ -346,9 +344,12 @@ class Simulation ():
         self.logincoming_text = self.menufont.render("Incoming", True, "Green")
         self.logoutgoing_text.set_alpha(127)
         self.logincoming_widget = self.logincoming_text.get_rect(center = (ui.screen_width/6 - 5, ui.screen_height/2 + 20))
-        self.logincomingbox = pygame.Rect((0, ui.screen_height/2 + 40), (ui.screen_width/3, ui.screen_height - 75))
+        self.logincomingbox = pygame.Rect((0, ui.screen_height/2 + 40), (ui.screen_width/3, ui.screen_height/2 - 40))
         
         self.outgoing_messages = pygame.sprite.Group()
+        self.last_atc_message = ""
+        self.incoming_messages = pygame.sprite.Group()
+        self.last_flight_message = ""
     
     def change_button_color(self):
         mouse_pos = pygame.mouse.get_pos()
@@ -363,19 +364,32 @@ class Simulation ():
         box_height = fh * num_row + 3
         return box_height
 
-    def create_messagebox(self, text, font, allowable_width, screen):
+    def create_messagebox(self, text, font, color, allowable_width, screen, outgoing=True):
         box_height = self.determine_boxheight(text, font, allowable_width)
-        if (len(self.outgoing_messages) == 0):
-            current_y = self.logoutgoingbox.topleft[1] + 4
+        if outgoing:
+            if (len(self.outgoing_messages) == 0):
+                current_y = self.logoutgoingbox.topleft[1] + 4
+            else:
+                current_y = self.outgoing_messages.sprites()[len(self.outgoing_messages) - 1].rect.bottom
+            while not self.logoutgoingbox.collidepoint((self.logoutgoingbox.topleft[0], current_y + box_height)):
+                dy = self.outgoing_messages.sprites()[0].rect.height
+                self.outgoing_messages.sprites()[0].kill()
+                self.outgoing_messages.update(-dy)
+                current_y = self.outgoing_messages.sprites()[len(self.outgoing_messages) - 1].rect.bottom
+            message = MessageBox(allowable_width -  10, box_height, self.logoutgoingbox.topleft[0] + 5, current_y, screen, text, color)
+            self.outgoing_messages.add(message)
         else:
-            current_y = self.outgoing_messages.sprites()[len(self.outgoing_messages) - 1].rect.bottom
-        while not self.logoutgoingbox.collidepoint((self.logoutgoingbox.topleft[0], current_y + box_height)):
-            dy = self.outgoing_messages.sprites()[0].rect.height
-            self.outgoing_messages.sprites()[0].kill()
-            self.outgoing_messages.update(-dy)
-            current_y = self.outgoing_messages.sprites()[len(self.outgoing_messages) - 1].rect.bottom
-        message = MessageBox(allowable_width -  10, box_height, self.logoutgoingbox.topleft[0] + 5, current_y, screen, text)
-        self.outgoing_messages.add(message)
+            if (len(self.incoming_messages) == 0):
+                current_y = self.logincomingbox.topleft[1] + 4
+            else:
+                current_y = self.incoming_messages.sprites()[len(self.incoming_messages) - 1].rect.bottom
+            while not self.logincomingbox.collidepoint((self.logincomingbox.topleft[0], current_y + box_height)):
+                dy = self.incoming_messages.sprites()[0].rect.height
+                self.incoming_messages.sprites()[0].kill()
+                self.incoming_messages.update(-dy)
+                current_y = self.incoming_messages.sprites()[len(self.incoming_messages) - 1].rect.bottom
+            message = MessageBox(allowable_width -  10, box_height, self.logincomingbox.topleft[0] + 5, current_y, screen, text, color)
+            self.incoming_messages.add(message)
 
     def render(self):
         screen = self.ui.screen
@@ -394,17 +408,28 @@ class Simulation ():
         draw_rect_alpha(screen, (255,255,255,127), self.logincomingbox)
         screen.blit(self.logincoming_text, self.logincoming_widget)
 
+        new_atc_message = Logger.last_atc_message
+        atc_msg = new_atc_message.split("]")[1]
+        atc_msg_without_time = atc_msg[1:len(atc_msg)]
+        if atc_msg_without_time != self.last_atc_message:
+            self.create_messagebox(new_atc_message,self.message_font,(0,0,255,127), self.logoutgoingbox.width, screen)
+        self.last_atc_message = atc_msg_without_time
+
+        new_flight_message = Logger.last_flight_message
+        flight_msg = new_flight_message.split("]")[1]
+        flight_msg_without_time = flight_msg[1:len(flight_msg)]
+        if flight_msg_without_time != self.last_flight_message:
+            self.create_messagebox(new_flight_message,self.message_font,(0,255,0,127), self.logincomingbox.width, screen, False)
+        self.last_flight_message = flight_msg_without_time
+
         self.outgoing_messages.draw(screen)
         self.outgoing_messages.update(0)
+        self.incoming_messages.draw(screen)
+        self.incoming_messages.update(0)
 
 
     def event_handler(self, pg_event, mouse_pos):
         if pg_event.type == pygame.MOUSEBUTTONDOWN:
-            ##Click to simulate event that would display message in log box##
-            the_time = str(ARTSSClock.ticks)
-            textlist = ["This is some random test text to test the text wrapping ability of text for testing. The more the test text, the better the testing.", "The better the testing, the better the test. The better the test...", "Some more random test text for testing"]
-            self.create_messagebox(f"Tick #{the_time}: " + random.choices(textlist)[0], self.message_font, self.logoutgoingbox.width, self.ui.screen)
-            ##-------------------------------------------------------------##
             if self.return_button.collidepoint(mouse_pos):
                 self.ui.button_sound.play()
                 return Event.GOTO_MAIN_MENU
