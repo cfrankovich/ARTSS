@@ -356,7 +356,10 @@ def debug_get_paths():
 
 def get_node_type(pos):
     global map
-    return map[pos[0]][pos[1]].type
+    try:
+        return map[pos[0]][pos[1]].type
+    except:
+        return TileType.NOTHING
 
 
 def get_runway_angle_from_route(route):
@@ -518,14 +521,14 @@ def generate_cruising_path(runway_required, pos):
     # filter runways based on length
     for i in range(len(dab_runway_info) - 1, 0, -1):
         rwi = dab_runway_info[i]
-        if rwi[2] > runway_required:
+        if rwi[2] < runway_required:
             dab_runway_info.pop(i)
 
     # now get closest one
     closest_runway_pos = None 
     score = 999999999999 
     for rwi in dab_runway_info:
-        temp_score = math.sqrt((pos[1] - rwi[0]) ** 2 + (pos[2] - rwi[1]) ** 2) 
+        temp_score = math.sqrt(((pos[1] - rwi[0]) ** 2) + ((pos[2] - rwi[1]) ** 2)) 
         if temp_score < score:
             score = temp_score 
             closest_runway_pos = rwi 

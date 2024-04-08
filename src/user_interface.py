@@ -25,6 +25,7 @@ COMPASS_BG_COLOR = (27, 27, 37)
 #LOWER_COMPASS_BG_COLOR = (95, 95, 117)
 LOWER_COMPASS_BG_COLOR = (0, 0, 0)
 COMPASS_DIR_COLOR = (190, 180, 180)
+PLANE_SURFACE_SIZE_OFFSET = 1000 
 
 def get_status_text(plane):
     status = plane.get_status()
@@ -174,7 +175,7 @@ class ARTSSCanvas():
         small_plane_img = pygame.image.load("graphics/small_plane.png")
         self.plane_imgs = [large_plane_img, default_plane_img, small_plane_img]
 
-        self.plane_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        self.plane_surface = pygame.Surface((WIDTH + PLANE_SURFACE_SIZE_OFFSET, HEIGHT + PLANE_SURFACE_SIZE_OFFSET), pygame.SRCALPHA)
 
         self.wind_arrow = pygame.image.load("graphics/wind_arrow_white.png")
         self.font = pygame.font.Font(None, 34)
@@ -192,8 +193,11 @@ class ARTSSCanvas():
 
         #screen.blit(self.rot_grid_surface, (WIDTH/2 - self.rot_grid_surface.get_width() / 2, HEIGHT / 2 - self.rot_grid_surface.get_height() / 2))
             
+        #screen.blit(ps, (WIDTH/2 - ps.get_width() / 2, HEIGHT/2 - ps.get_height() / 2))
         ps = pygame.transform.rotate(self.plane_surface, 25) 
-        screen.blit(ps, (WIDTH/2 - ps.get_width() / 2, HEIGHT/2 - ps.get_height() / 2))
+        #screen.blit(ps, (-PLANE_SURFACE_SIZE_OFFSET, -PLANE_SURFACE_SIZE_OFFSET))
+        psposthing = ((WIDTH/2 - ps.get_width() / 2), (HEIGHT/2 - ps.get_height() / 2))
+        screen.blit(ps, psposthing)
 
         CENTER_X = 1180
         CENTER_Y = 100
@@ -227,7 +231,8 @@ class ARTSSCanvas():
 
         # draw paths 
         half_grid_space_size = GRID_SPACE_SIZE / 2
-        path_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        path_surface = pygame.Surface((WIDTH + PLANE_SURFACE_SIZE_OFFSET, HEIGHT + PLANE_SURFACE_SIZE_OFFSET), pygame.SRCALPHA)
+        #path_surface = pygame.Surface((WIDTH + PLANE_SURFACE_SIZE_OFFSET, HEIGHT + PLANE_SURFACE_SIZE_OFFSET), pygame.SRCALPHA)
         line_width = 3
         drawn = []
         for n, plane in enumerate(plane_queue):
@@ -273,6 +278,9 @@ class ARTSSCanvas():
                         offset = (round(n/2) * (-1 if n % 2 == 0 else 1)) + line_width
                         new_start = (start[0] + offset, start[1] + offset)
                         new_end = (end[0] + offset, end[1] + offset)
+
+                    new_start = (new_start[0] + PLANE_SURFACE_SIZE_OFFSET // 2, new_start[1] + PLANE_SURFACE_SIZE_OFFSET // 2)
+                    new_end = (new_end[0] + PLANE_SURFACE_SIZE_OFFSET // 2, new_end[1] + PLANE_SURFACE_SIZE_OFFSET // 2)
                     
                     if get_node_type(node) == TileType.RUNWAY: 
                         draw_dashed_line(path_surface, color, new_start, new_end, line_width) 
@@ -297,7 +305,9 @@ class ARTSSCanvas():
             scale_factor = ((plane.altitude / DEPARTED_ALTITUDE) * (MAX_PLANE_SCALE - 1)) + 1 
             width = height = GRID_SPACE_SIZE * scale_factor
             offset = (width - GRID_SPACE_SIZE) // 2
-            x, y = (mx * GRID_SPACE_SIZE - offset, my * GRID_SPACE_SIZE - offset) 
+            x, y = (mx * GRID_SPACE_SIZE, my * GRID_SPACE_SIZE) 
+            x += PLANE_SURFACE_SIZE_OFFSET // 2 
+            y += PLANE_SURFACE_SIZE_OFFSET // 2 
             plane_img_rot = pygame.transform.rotate(plane_img, facing_angle)
             plane_img_scaled = pygame.transform.scale(plane_img_rot, (width, height))
             self.plane_surface.blit(plane_img_scaled, (x, y))
