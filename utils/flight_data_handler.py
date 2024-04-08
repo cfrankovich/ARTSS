@@ -17,8 +17,8 @@ class FlightStatus(Enum):
     AIRBORNE = -10 # pilot sends "DEPARTURE" com 
     CLIMBING = 11 
     DEPARTED = 12 # marks success of departure 
-    CRUISING = 13 # plane is cruising in airspace 
-    REQUEST_TO_APPROACH = -14 # "INTIAL CONTACT WITH APPROACH CONTROL" com 
+    CRUISING = 13 # plane is cruising in airspace # ready to land basically 
+    REQUEST_TO_APPROACH = 14 # "INTIAL CONTACT WITH APPROACH CONTROL" com 
     HOLDING = 15 # pilot recieved "HOLD" com - hold before landing - fly in circular pattern 
     APPROACHING = -16 # pilot receieved "APPROACH CLEARANCE" com and pilot sends "INITIAL CONTACT WITH TOWER" com 
     DESCENDING = 17 # pilot receieved "LANDING CLEARANCE" com

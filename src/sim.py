@@ -6,7 +6,7 @@ from utils.flight_data_handler import FlightStatus
 from utils.coms import CommunicationType
 from utils.map_handler import init_winds, adjust_wind, debug_init_winds
 
-STARTING_PLANE_COUNT = 6
+STARTING_PLANE_COUNT = 1
 
 
 class ARTSS():
@@ -34,6 +34,7 @@ class ARTSS():
                 continue
             elif int(status.value) > 0: # positive enum values are not dependent on the atc
                 plane.update()
+                plane.send_com(self.atc_agent)
                 continue
 
             plane.send_com(self.atc_agent)

@@ -13,7 +13,7 @@ from utils.flight_data_handler import FlightStatus
 import random
 from src.message_box import MessageBox
 
-FPS = 30 
+FPS = 35 
 WIDTH = 1280
 HEIGHT = 720
 GRID_SPACE_SIZE = 20
@@ -154,16 +154,18 @@ def draw_text_with_outline(surface, text, font, pos, text_color, outline_color, 
 class ARTSSCanvas():
     def __init__(self, ui):
         self.ui = ui
-        airport_image = pygame.image.load("graphics/sim_bg_dark.png")
+        #airport_image = pygame.image.load("graphics/sim_bg_dark.png")
+        airport_image = pygame.image.load("graphics/sim_bg_demo_no_labels.png")
         self.airport_background = pygame.transform.scale(airport_image, (WIDTH, HEIGHT))
 
         # grid for testing purposes
         grid_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
         for i, x in enumerate(get_map()):
             for j, y in enumerate(x):
+                #pos = y.get_pos()
                 if y.type == TileType.NOTHING: 
                     continue 
-                pygame.draw.rect(grid_surface, (255, 255, 255), (i*GRID_SPACE_SIZE, j*GRID_SPACE_SIZE, 
+                pygame.draw.rect(grid_surface, (255, 0, 255), (i*GRID_SPACE_SIZE, j*GRID_SPACE_SIZE, 
                                                 GRID_SPACE_SIZE, GRID_SPACE_SIZE), 1)
         self.rot_grid_surface = pygame.transform.rotate(grid_surface, 25)
 
@@ -363,6 +365,7 @@ class Simulation ():
         screen.blit(self.return_text, self.return_button)
         screen.blit(self.play_button, (1125, 240))
         screen.blit(self.pause_button, (1190, 240))
+        """
         screen.blit(self.logheader_text, self.logheader_widget)
         pygame.draw.rect(screen, "White", self.logbox, 5, 5)
         #pygame.draw.rect(screen, "White", self.simbox, 5, 5)
@@ -373,6 +376,7 @@ class Simulation ():
 
         self.outgoing_messages.draw(screen)
         self.outgoing_messages.update(0)
+        """
         
         pygame.display.flip()
 

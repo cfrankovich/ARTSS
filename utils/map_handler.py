@@ -7,6 +7,7 @@ from collections import Counter
 MAP_PATH = "map.csv"
 MAX_WIND_SPEED = 25
 MIN_WIND_SPEED = 5
+OFF_MAP_DISTANCE = 30 
 
 gates = {} 
 map = [] 
@@ -68,6 +69,20 @@ def get_node_type_from_pos(pos):
 def get_map():
     global map
     return map
+
+
+def get_cruising_pos(d):
+    MAX_X = 65 
+    MAX_Y = 45
+    random_pos = random.randint(5, MAX_X) 
+    if d == Direction.NORTH:
+        return (Direction.SOUTH, random_pos, OFF_MAP_DISTANCE * -1)
+    if d == Direction.WEST:
+        return (Direction.EAST, OFF_MAP_DISTANCE * -1, random_pos % MAX_Y)
+    if d == Direction.SOUTH:
+        return (Direction.NORTH, random_pos, OFF_MAP_DISTANCE + MAX_Y)
+    if d == Direction.EAST:
+        return (Direction.WEST, OFF_MAP_DISTANCE + MAX_X, random_pos % MAX_Y)
 
 
 class Direction(Enum):
@@ -463,3 +478,74 @@ def is_runway_being_used_at_time(tick_num, queue):
             else:
                 num_ticks += ticks_per_tile
     return False
+
+
+def bresenhams_line_algorithm(a, b, x, y):
+    print('alg')
+    points = []
+    dx = abs(x - a)
+    dy = abs(y - b)
+    sx = 1 if a < x else -1
+    sy = 1 if b < y else -1
+    err = dx - dy
+
+    while True:
+        points.append((a, b))
+        if a == x and b == y:
+            break
+        e2 = 2 * err
+        if e2 >= -dy:
+            err -= dy
+            a += sx
+        if e2 <= dx:
+            err += dx
+            b += sy
+
+    return points
+
+
+def generate_cruising_path(runway_required, pos):
+    # (xpos, ypos, length) #
+    dab_runway_info = [ 
+        (4, 21, 46),  # 07L/25R -> 07 east
+        (50, 21, 46), # 07L/25R -> 25 west 
+        (32, 28, 15), # 07R/25L -> 07 east
+        (47, 28, 15), # 07R/25L -> 25 west
+        (43, 7, 25),  # 16/34   -> 16 south
+        (43, 32, 25), # 16/34   -> 34 north
+    ]
+
+    # filter runways based on length
+    for i in range(len(dab_runway_info) - 1, 0, -1):
+        rwi = dab_runway_info[i]
+        if rwi[2] > runway_required:
+            dab_runway_info.pop(i)
+
+    # now get closest one
+    closest_runway_pos = None 
+    score = 999999999999 
+    for rwi in dab_runway_info:
+        temp_score = math.sqrt((pos[1] - rwi[0]) ** 2 + (pos[2] - rwi[1]) ** 2) 
+        if temp_score < score:
+            score = temp_score 
+            closest_runway_pos = rwi 
+
+    print(pos[1], pos[2], closest_runway_pos[0], closest_runway_pos[1])
+
+    # now generate closest path to it
+    return bresenhams_line_algorithm(pos[1], pos[2], closest_runway_pos[0], closest_runway_pos[1])
+
+
+def is_plane_clear_to_land(plane):
+    """
+        1. check the wind conditions if the plane is on course to the runway at that time
+            1a. keep in mind the direction the plane is coming from tell plane to hold at place with best wind 
+            1b. keep in mind the tick...
+        2. check the traffic congestion if the plane is to land asap
+            2a. when the plane lands can they exit the runway immediately
+        3. if these are both bad tell the plane to hold at a position and theyll fly around that path 
+    """
+    perfect_time = "" 
+    pass
+
+

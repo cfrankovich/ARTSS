@@ -1,7 +1,7 @@
 import pygame
 from utils.flight_data_handler import generate_flight_data, FlightStatus, generate_aircraft_info 
 from utils.coms import CommunicationType 
-from utils.map_handler import gates, get_facing_direction_from_gate, Direction, get_adjacent_runway_pos
+from utils.map_handler import gates, get_facing_direction_from_gate, Direction, get_adjacent_runway_pos, get_cruising_pos, generate_cruising_path
 from utils.logger import logger
 import matplotlib as plt
 import numpy as np
@@ -54,14 +54,13 @@ def get_rainbow_color(amt, idx):
 class Plane(pygame.sprite.Sprite):
     def __init__(self):
         super().__init__() 
-        self.flight_data = generate_flight_data(gates_in_use) 
+        #self.flight_data = generate_flight_data(gates_in_use) 
+        self.flight_data = generate_flight_data(gates_in_use, status=FlightStatus.CRUISING) 
         self.aircraft_info = generate_aircraft_info() 
         gates_in_use.append(self.flight_data["gate"])
-        self.map_x, self.map_y = self.get_initial_map_pos() 
-        self.facing = get_facing_direction_from_gate(self.map_x, self.map_y) 
-        self.facing = Direction((self.facing.value + 180) % 360) # opposite direction angle 
         self.current_path = [] 
         self.runway_path = []
+        self.facing, self.map_x, self.map_y = self.get_initial_map_pos() 
         self.d_altitude = 1
         self.altitude = 0
         self.debug_paths = []
@@ -99,8 +98,17 @@ class Plane(pygame.sprite.Sprite):
     def get_initial_map_pos(self):
         if self.get_status() == FlightStatus.AT_GATE:
             self.flight_data["status"] = FlightStatus.READY_FOR_PUSHBACK
-            return gates[self.flight_data["gate"]]
-        return (0, 0)
+            gate_pos = gates[self.flight_data["gate"]]
+            direction = get_facing_direction_from_gate(gate_pos[0], gate_pos[1])
+            return (direction, gate_pos[0], gate_pos[1])
+        if self.get_status() == FlightStatus.CRUISING:
+            self.flight_data["status"] = FlightStatus.REQUEST_TO_APPROACH
+            random_direction = Direction(random.randint(0, 3) * 90)
+            crusing_pos = get_cruising_pos(random_direction)
+            print(crusing_pos[0])
+            self.current_path = generate_cruising_path(self.aircraft_info["required_runway_space"] + 3, crusing_pos) # +3 since theyre coming in fast
+            return crusing_pos
+        return (None, 0, 0)
 
     def receive_com(self, atc, com):
         fn = self.flight_data["flight_number"]
@@ -128,6 +136,7 @@ class Plane(pygame.sprite.Sprite):
             self.set_status(FlightStatus.AIRBORNE)
             self.send_com(atc, (f"Runway {runway_number}, cleared for takeoff, {fn}.", CommunicationType.CONFIRM_TAKEOFF_CLEARANCE))
 
+
     def send_com(self, atc, com=None):
         fn = self.flight_data["flight_number"]
         if com is not None:
@@ -149,6 +158,10 @@ class Plane(pygame.sprite.Sprite):
         elif status == FlightStatus.AIRBORNE:
             com = (f"{fn}, climbing to {DEPARTED_ALTITUDE}.", CommunicationType.DEPARTURE)
             self.set_status(FlightStatus.CLIMBING)
+        elif status == FlightStatus.REQUEST_TO_APPROACH:
+            ra = random.randint(828, 2828) 
+            information = np.random.choice(["Alpha", "Bravo", "Charlie"], p=[0.50, 0.42, 0.08])
+            com = (f"{fn}, with you, {DEPARTED_ALTITUDE + ra} descending to {DEPARTED_ALTITUDE}, with information {information}.", CommunicationType.INITIAL_CONTACT)
 
         logger.log_flight_com(fn, com[0])
         atc.receive_com(com, self)
@@ -162,7 +175,6 @@ class Plane(pygame.sprite.Sprite):
             self.facing = Direction((self.facing.value + 180) % 360)
             self.set_status(FlightStatus.WAITING_FOR_TAXI_CLEARANCE)
         elif status.value >= 5 and status.value < 12: # taxiing to departure
-            #if status.value 
             try:
                 self.move_on_path()
                 if status == FlightStatus.CLIMBING:
@@ -179,6 +191,15 @@ class Plane(pygame.sprite.Sprite):
                     if len(plane_queue) > 11:
                         plane_queue.pop(0)
                 self.set_status(new_status)
+        elif abs(status.value) >= 13 and abs(status.value) <= 19:
+            try:
+                node = self.current_path.pop(0)
+                self.map_x = node[0]
+                self.map_y = node[1]
+                next_face = self.get_direction_of_next_node(self.current_path[0])
+                self.facing = self.facing if next_face is None else next_face 
+            except:
+                pass
         if status == FlightStatus.DEPARTED:
             pass
             #global plane_queue 
