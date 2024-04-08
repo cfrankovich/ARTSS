@@ -699,7 +699,7 @@ class UserInterface():
                     f.write("Fullscreen = True\n")
                 self.current_ui = Settings(self)
             elif self.fullscreen_setting:
-                self.screen = pygame.display.set_mode((1200, 800))
+                self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
                 self.screen_width, self.screen_height = self.screen.get_size()
                 self.fullscreen_setting = False
                 with open("settings.txt","w+") as f:
