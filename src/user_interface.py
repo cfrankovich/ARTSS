@@ -12,7 +12,7 @@ from .message_box import MessageBox
 from utils.logger import Logger
 
 
-FPS = 30
+FPS = 60
 WIDTH = 1280
 HEIGHT = 720
 GRID_SPACE_SIZE = 20
@@ -161,6 +161,21 @@ def draw_rect_alpha(surface, color, rect, borders=True, text=None):
         surface.blit(text, rect)
     surface.blit(shape_surf, rect)
 
+def add_outline_to_image(image: pygame.Surface, thickness: int, color: tuple, color_key: tuple = (0, 0, 0)) -> pygame.Surface:
+    mask = pygame.mask.from_surface(image)
+    mask_surf = mask.to_surface(setcolor=color)
+    mask_surf.set_colorkey((0, 0, 0))
+
+    new_img = pygame.Surface((image.get_width() + 2, image.get_height() + 2))
+    new_img.fill(color_key)
+    new_img.set_colorkey(color_key)
+
+    for i in -thickness, thickness:
+        new_img.blit(mask_surf, (i + thickness, thickness))
+        new_img.blit(mask_surf, (thickness, i + thickness))
+    new_img.blit(image, (thickness, thickness))
+
+    return new_img
 
 class ARTSSCanvas():
     def __init__(self, ui):
@@ -325,6 +340,7 @@ class Simulation ():
         self.titlefont= pygame.font.SysFont("britannic", 55)
         self.color_not_hovering = pygame.Color(255,255,255,215)
         self.color_hovering = pygame.Color(128,128,128,215)
+        self.transparent = pygame.Color(0,0,0,0)
         self.return_box_color = self.color_not_hovering
         self.titletext = self.titlefont.render("Simulation", True, "White")
         self.titletext_widget = self.titletext.get_rect(midtop = (ui.screen_width/2, 0))
@@ -335,7 +351,10 @@ class Simulation ():
         self.pause_button = pygame.image.load("graphics/pausebutton.png")
         self.pause_button = pygame.transform.smoothscale(self.pause_button, (ui.screen_width/30, ui.screen_height/20))
         self.logheader_text = self.menufont.render("Log", True, "White")
-        self.logheader_widget = self.logheader_text.get_rect(center = (ui.screen_width/6, 50))
+        self.logheader_text = add_outline_to_image(self.logheader_text, 2, (0,0,0))
+        self.logheader_button = self.logheader_text.get_rect(center = (ui.screen_width/6, 50))
+        self.logheader_button_color = self.transparent
+        self.show_log = False
         self.logbox = pygame.Rect((0, 75), (ui.screen_width/3, ui.screen_height - 75))
         self.logoutgoing_text = self.menufont.render("Outgoing", True, "Blue")
         self.logoutgoing_text.set_alpha(127)
@@ -357,6 +376,10 @@ class Simulation ():
             self.return_box_color = self.color_hovering
         else:
             self.return_box_color = self.color_not_hovering
+        if self.logheader_button.collidepoint(mouse_pos):
+            self.logheader_button_color = self.color_hovering
+        else:
+            self.logheader_button_color = self.transparent
 
     def determine_boxheight(self, text, font, allowable_width):
         fw, fh = pygame.font.Font.size(font, text)
@@ -401,31 +424,33 @@ class Simulation ():
         screen.blit(self.return_text, self.return_button)
         screen.blit(self.play_button, (1125, 240))
         screen.blit(self.pause_button, (1190, 240))
-        screen.blit(self.logheader_text, self.logheader_widget)
-        draw_rect_alpha(screen, (255,255,255,127) , self.logbox)
-        draw_rect_alpha(screen, (255,255,255,127), self.logoutgoingbox)
-        screen.blit(self.logoutgoing_text, self.logoutgoing_widget)
-        draw_rect_alpha(screen, (255,255,255,127), self.logincomingbox)
-        screen.blit(self.logincoming_text, self.logincoming_widget)
+        draw_rect_alpha(screen, self.logheader_button_color, self.logheader_button)
+        screen.blit(self.logheader_text, self.logheader_button)
+        if self.show_log:
+            draw_rect_alpha(screen, (255,255,255,127) , self.logbox)
+            draw_rect_alpha(screen, (255,255,255,127), self.logoutgoingbox)
+            screen.blit(self.logoutgoing_text, self.logoutgoing_widget)
+            draw_rect_alpha(screen, (255,255,255,127), self.logincomingbox)
+            screen.blit(self.logincoming_text, self.logincoming_widget)
 
-        new_atc_message = Logger.last_atc_message
-        atc_msg = new_atc_message.split("]")[1]
-        atc_msg_without_time = atc_msg[1:len(atc_msg)]
-        if atc_msg_without_time != self.last_atc_message:
-            self.create_messagebox(new_atc_message,self.message_font,(0,0,255,127), self.logoutgoingbox.width, screen)
-        self.last_atc_message = atc_msg_without_time
+            new_atc_message = Logger.last_atc_message
+            atc_msg = new_atc_message.split("]")[1]
+            atc_msg_without_time = atc_msg[1:len(atc_msg)]
+            if atc_msg_without_time != self.last_atc_message:
+                self.create_messagebox(new_atc_message,self.message_font,(0,0,255,127), self.logoutgoingbox.width, screen)
+            self.last_atc_message = atc_msg_without_time
 
-        new_flight_message = Logger.last_flight_message
-        flight_msg = new_flight_message.split("]")[1]
-        flight_msg_without_time = flight_msg[1:len(flight_msg)]
-        if flight_msg_without_time != self.last_flight_message:
-            self.create_messagebox(new_flight_message,self.message_font,(0,255,0,127), self.logincomingbox.width, screen, False)
-        self.last_flight_message = flight_msg_without_time
+            new_flight_message = Logger.last_flight_message
+            flight_msg = new_flight_message.split("]")[1]
+            flight_msg_without_time = flight_msg[1:len(flight_msg)]
+            if flight_msg_without_time != self.last_flight_message:
+                self.create_messagebox(new_flight_message,self.message_font,(0,255,0,127), self.logincomingbox.width, screen, False)
+            self.last_flight_message = flight_msg_without_time
 
-        self.outgoing_messages.draw(screen)
-        self.outgoing_messages.update(0)
-        self.incoming_messages.draw(screen)
-        self.incoming_messages.update(0)
+            self.outgoing_messages.draw(screen)
+            self.outgoing_messages.update(0)
+            self.incoming_messages.draw(screen)
+            self.incoming_messages.update(0)
 
 
     def event_handler(self, pg_event, mouse_pos):
@@ -439,6 +464,13 @@ class Simulation ():
             elif self.pause_button.get_rect(topleft = (1190, 240)).collidepoint(mouse_pos):
                 self.ui.button_sound.play()
                 ARTSSClock.setRunning(False)
+            elif self.logheader_button.collidepoint(mouse_pos):
+                self.ui.button_sound.play()
+                self.show_log = not self.show_log
+        if pg_event.type == pygame.KEYDOWN:
+            if pg_event.key == pygame.K_SPACE:
+                self.ui.button_sound.play()
+                ARTSSClock.setRunning(not ARTSSClock.Running)
         return Event.NONE
 
 
