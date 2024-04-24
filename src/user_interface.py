@@ -12,7 +12,7 @@ from .message_box import MessageBox
 from utils.logger import Logger
 
 
-FPS = 60
+FPS = 30
 WIDTH = 1280
 HEIGHT = 720
 GRID_SPACE_SIZE = 20
@@ -328,7 +328,10 @@ class ARTSSCanvas():
             planefont = pygame.font.Font(None, 18)
             planetext = planefont.render(plane.flight_data["flight_number"], True, color)
             self.plane_surface.blit(planetext, (x - 8, y - 8))
-
+            plane.x = x
+            plane.y = y
+            plane.image = plane_img_scaled
+            plane.rect = plane.image.get_rect(topleft = (plane.x,plane.y))
 
 class Simulation ():
     def __init__(self, ui):
@@ -336,7 +339,7 @@ class Simulation ():
         self.artss_canvas = ARTSSCanvas(ui)
 
         self.message_font = pygame.font.Font(None, 25)
-        self.menufont = pygame.font.SysFont("britannic", 40)
+        self.menufont = pygame.font.SysFont("britannic", 35)
         self.titlefont= pygame.font.SysFont("britannic", 55)
         self.color_not_hovering = pygame.Color(255,255,255,215)
         self.color_hovering = pygame.Color(128,128,128,215)
@@ -350,11 +353,19 @@ class Simulation ():
         self.play_button = pygame.transform.smoothscale(self.play_button, (ui.screen_width/30, ui.screen_height/20))
         self.pause_button = pygame.image.load("graphics/pausebutton.png")
         self.pause_button = pygame.transform.smoothscale(self.pause_button, (ui.screen_width/30, ui.screen_height/20))
+
+        self.show_log = False
+        self.show_manual_controls = False
         self.logheader_text = self.menufont.render("Log", True, "White")
         self.logheader_text = add_outline_to_image(self.logheader_text, 2, (0,0,0))
-        self.logheader_button = self.logheader_text.get_rect(center = (ui.screen_width/6, 50))
+        self.logheader_button = self.logheader_text.get_rect(center = (ui.screen_width/15, 50)) 
         self.logheader_button_color = self.transparent
-        self.show_log = False
+
+        self.controls_text = self.menufont.render("Manual Controls", True, "CYAN")
+        self.controls_text = add_outline_to_image(self.controls_text, 2, (0,0,0))
+        self.controls_button = self.controls_text.get_rect(center = (ui.screen_width/4.8, 50))
+        self.controls_button_color = self.transparent
+        
         self.logbox = pygame.Rect((0, 75), (ui.screen_width/3, ui.screen_height - 75))
         self.logoutgoing_text = self.menufont.render("Outgoing", True, "Blue")
         self.logoutgoing_text.set_alpha(127)
@@ -364,11 +375,15 @@ class Simulation ():
         self.logoutgoing_text.set_alpha(127)
         self.logincoming_widget = self.logincoming_text.get_rect(center = (ui.screen_width/6 - 5, ui.screen_height/2 + 20))
         self.logincomingbox = pygame.Rect((0, ui.screen_height/2 + 40), (ui.screen_width/3, ui.screen_height/2 - 40))
+
+        self.controlsbox = self.logbox = pygame.Rect((0, 75), (ui.screen_width/3, ui.screen_height - 75))
         
         self.outgoing_messages = pygame.sprite.Group()
         self.last_atc_message = ""
         self.incoming_messages = pygame.sprite.Group()
         self.last_flight_message = ""
+
+        self.planes_info = pygame.sprite.Group()
     
     def change_button_color(self):
         mouse_pos = pygame.mouse.get_pos()
@@ -380,6 +395,10 @@ class Simulation ():
             self.logheader_button_color = self.color_hovering
         else:
             self.logheader_button_color = self.transparent
+        if self.controls_button.collidepoint(mouse_pos):
+            self.controls_button_color = self.color_hovering
+        else:
+            self.controls_button_color = self.transparent
 
     def determine_boxheight(self, text, font, allowable_width):
         fw, fh = pygame.font.Font.size(font, text)
@@ -399,7 +418,7 @@ class Simulation ():
                 self.outgoing_messages.sprites()[0].kill()
                 self.outgoing_messages.update(-dy)
                 current_y = self.outgoing_messages.sprites()[len(self.outgoing_messages) - 1].rect.bottom
-            message = MessageBox(allowable_width -  10, box_height, self.logoutgoingbox.topleft[0] + 5, current_y, screen, text, color)
+            message = MessageBox(allowable_width -  10, box_height, self.logoutgoingbox.topleft[0] + 5, current_y, screen, text, color, 127)
             self.outgoing_messages.add(message)
         else:
             if (len(self.incoming_messages) == 0):
@@ -411,9 +430,16 @@ class Simulation ():
                 self.incoming_messages.sprites()[0].kill()
                 self.incoming_messages.update(-dy)
                 current_y = self.incoming_messages.sprites()[len(self.incoming_messages) - 1].rect.bottom
-            message = MessageBox(allowable_width -  10, box_height, self.logincomingbox.topleft[0] + 5, current_y, screen, text, color)
+            message = MessageBox(allowable_width -  10, box_height, self.logincomingbox.topleft[0] + 5, current_y, screen, text, color,127)
             self.incoming_messages.add(message)
 
+    def display_plane_info(self, font, plane):
+        color = plane.color
+        plane_info = plane.flight_data["flight_number"] + ": " + get_status_text(plane)
+        box_height = self.determine_boxheight(plane_info, font, 100)
+        plane_box = MessageBox(100, box_height, plane.x - 15, plane.y - box_height - 15, self.artss_canvas.plane_surface, plane_info, color, 175)
+        self.planes_info.add(plane_box)
+     
     def render(self):
         screen = self.ui.screen
         self.artss_canvas.render()
@@ -426,6 +452,8 @@ class Simulation ():
         screen.blit(self.pause_button, (1190, 240))
         draw_rect_alpha(screen, self.logheader_button_color, self.logheader_button)
         screen.blit(self.logheader_text, self.logheader_button)
+        draw_rect_alpha(screen, self.controls_button_color, self.controls_button)
+        screen.blit(self.controls_text, self.controls_button)
         if self.show_log:
             draw_rect_alpha(screen, (255,255,255,127) , self.logbox)
             draw_rect_alpha(screen, (255,255,255,127), self.logoutgoingbox)
@@ -450,8 +478,14 @@ class Simulation ():
             self.outgoing_messages.draw(screen)
             self.outgoing_messages.update(0)
             self.incoming_messages.draw(screen)
-            self.incoming_messages.update(0)
-
+            self.incoming_messages.update(0)  
+        elif self.show_manual_controls:
+            draw_rect_alpha(screen, (0,255,255,127) , self.controlsbox)
+        
+        self.planes_info.draw(screen)
+        self.planes_info.update(0)
+        if ARTSSClock.Running:
+            self.planes_info.empty()
 
     def event_handler(self, pg_event, mouse_pos):
         if pg_event.type == pygame.MOUSEBUTTONDOWN:
@@ -466,7 +500,27 @@ class Simulation ():
                 ARTSSClock.setRunning(False)
             elif self.logheader_button.collidepoint(mouse_pos):
                 self.ui.button_sound.play()
+                self.show_manual_controls = False
                 self.show_log = not self.show_log
+            elif self.controls_button.collidepoint(mouse_pos):
+                self.ui.button_sound.play()
+                self.show_log = False
+                self.show_manual_controls = not self.show_manual_controls
+            if not ARTSSClock.Running:  
+                for n, plane in enumerate(plane_queue):
+                    center_x = WIDTH/2
+                    center_y= HEIGHT/2
+                    vec = pygame.math.Vector2(plane.x - center_x, plane.y - center_y)
+                    rot_vec = vec.rotate(-25)
+                    dif_x = rot_vec.x - vec.x
+                    dif_y = rot_vec.y - vec.y
+                    rot_rect = pygame.Rect(plane.x + dif_x, plane.y + dif_y, plane.rect.width, plane.rect.height)
+                    if rot_rect.collidepoint(mouse_pos):
+                        if len(self.planes_info) == 0:
+                            self.display_plane_info(self.message_font, plane)
+                        else:
+                            self.planes_info.empty()
+                            self.display_plane_info(self.message_font, plane)
         if pg_event.type == pygame.KEYDOWN:
             if pg_event.key == pygame.K_SPACE:
                 self.ui.button_sound.play()

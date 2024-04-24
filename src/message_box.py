@@ -1,7 +1,7 @@
 import pygame
 
 class MessageBox(pygame.sprite.Sprite):
-    def __init__(self, width, height, top_x, top_y, screen, text, color):
+    def __init__(self, width, height, top_x, top_y, screen, text, color, alpha):
        super().__init__() 
 
        self.image = pygame.Surface([width, height])
@@ -11,6 +11,7 @@ class MessageBox(pygame.sprite.Sprite):
        self.text = text
        self.screen = screen
        self.color = color
+       self.alpha = alpha
 
     def draw_text(self, surface, text, rect, font, aa=False, bkg=None):
         rect = pygame.Rect(rect)
@@ -33,7 +34,7 @@ class MessageBox(pygame.sprite.Sprite):
                 image.set_colorkey(bkg)
             else:
                 image = font.render(text[:i], aa, self.color)
-            image.set_alpha(127)
+            image.set_alpha(self.alpha)
             surface.blit(image, (rect.left, y))
             y += fontHeight + lineSpacing
             text = text[i:]
