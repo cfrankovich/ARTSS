@@ -7,18 +7,47 @@ from collections import Counter
 MAP_PATH = "map.csv"
 MAX_WIND_SPEED = 25
 MIN_WIND_SPEED = 5
-OFF_MAP_DISTANCE = 30 
+OFF_MAP_DISTANCE = 50 
+DAB_RUNWAY_INFO = [ 
+    # (xpos, ypos, length, angle) #
+    (4, 21, 46, 70),   # 07L/25R -> 07 east
+    (50, 21, 46, 250), # 07L/25R -> 25 west 
+    (32, 28, 15, 70),  # 07R/25L -> 07 east
+    (47, 28, 15, 250), # 07R/25L -> 25 west
+    (43, 7, 25, 160),  # 16/34   -> 16 south
+    (43, 32, 25, 340), # 16/34   -> 34 north
+]
+RUNWAY_NAMES = [ "07L", "25R", "07R", "25L", "16", "34" ]
+
+# arguments to pass to the path gen + rwa
+LOOP_LENGTH      = 50
+LOOP_WIDTH       = 40
+DIAG_SIDE_LENGTH = 10 
+ENTRY_SPACE      = 10
+HOLD_POINTS_INFO = {
+    "Alpha" : (43, 7, 2, 2, 160), 
+    "Bravo" : (43, 7, 2, 1, 160), 
+    "Charlie" : (50, 21, 1, 1, 250), 
+    "Delta" : (50, 21, 1, 2, 250), 
+    "Echo" : (47, 28, 1, 2, 250), 
+    "Foxtrot" : (43, 32, 0, 2, 340), 
+    "Golf" : (43, 32, 0, 1, 340), 
+    "Hotel" : (32, 28, 3, 1, 70), 
+    "India" : (4, 21, 3, 2, 70), 
+    "Juliett" : (4, 21, 3, 1, 70)
+}
 
 gates = {} 
 map = [] 
 runways = {}
 debug_paths = []
 winds = []
-wind_direction = random.randrange(0, 360) # deg 
-wind_speed = random.randrange(MIN_WIND_SPEED, MAX_WIND_SPEED + 1) # knots 
-#wind_direction = 70 
-#wind_speed = 14 
+#wind_direction = random.randrange(0, 360) # deg 
+#wind_speed = random.randrange(MIN_WIND_SPEED, MAX_WIND_SPEED + 1) # knots 
+wind_direction = 70 
+wind_speed = 14 
 winds.append((wind_direction, wind_speed))
+debug_stuff_delete_me = []
 
 
 def get_wind_info():
@@ -484,7 +513,6 @@ def is_runway_being_used_at_time(tick_num, queue):
 
 
 def bresenhams_line_algorithm(a, b, x, y):
-    print('alg')
     points = []
     dx = abs(x - a)
     dy = abs(y - b)
@@ -508,38 +536,30 @@ def bresenhams_line_algorithm(a, b, x, y):
 
 
 def generate_cruising_path(runway_required, pos):
-    # (xpos, ypos, length) #
-    dab_runway_info = [ 
-        (4, 21, 46),  # 07L/25R -> 07 east
-        (50, 21, 46), # 07L/25R -> 25 west 
-        (32, 28, 15), # 07R/25L -> 07 east
-        (47, 28, 15), # 07R/25L -> 25 west
-        (43, 7, 25),  # 16/34   -> 16 south
-        (43, 32, 25), # 16/34   -> 34 north
-    ]
-
     # filter runways based on length
-    for i in range(len(dab_runway_info) - 1, 0, -1):
-        rwi = dab_runway_info[i]
+    runway_info_copy = DAB_RUNWAY_INFO.copy()
+    for i in range(len(runway_info_copy) - 1, 0, -1):
+        rwi = runway_info_copy[i]
         if rwi[2] < runway_required:
-            dab_runway_info.pop(i)
+            runway_info_copy.pop(i)
 
     # now get closest one
     closest_runway_pos = None 
     score = 999999999999 
-    for rwi in dab_runway_info:
+    for rwi in runway_info_copy:
         temp_score = math.sqrt(((pos[1] - rwi[0]) ** 2) + ((pos[2] - rwi[1]) ** 2)) 
         if temp_score < score:
             score = temp_score 
             closest_runway_pos = rwi 
 
-    print(pos[1], pos[2], closest_runway_pos[0], closest_runway_pos[1])
+    #print(pos[1], pos[2], closest_runway_pos[0], closest_runway_pos[1])
 
     # now generate closest path to it
-    return bresenhams_line_algorithm(pos[1], pos[2], closest_runway_pos[0], closest_runway_pos[1])
+    #return bresenhams_line_algorithm(pos[1], pos[2], closest_runway_pos[0], closest_runway_pos[1])
+    return []
 
 
-def is_plane_clear_to_land(plane):
+def is_plane_clear_to_land(plane, clock, queue):
     """
         1. check the wind conditions if the plane is on course to the runway at that time
             1a. keep in mind the direction the plane is coming from tell plane to hold at place with best wind 
@@ -548,7 +568,292 @@ def is_plane_clear_to_land(plane):
             2a. when the plane lands can they exit the runway immediately
         3. if these are both bad tell the plane to hold at a position and theyll fly around that path 
     """
-    perfect_time = "" 
-    pass
+    flight_ticks = plane.aircraft_info["flight_ticks_per_tile"]
+    min_runway_req = plane.aircraft_info["required_runway_space"] + 3 # +3 since coming in fast
+    crosswind_limit = plane.aircraft_info["crosswind_limit"]
+    pos = plane.get_map_pos()
+    clock_ticks = clock.ticks
+
+    cw_and_hws = get_best_cws_and_hws(min_runway_req, crosswind_limit, pos, clock_ticks, flight_ticks)
+    grades = [ abs(cwhw[0]) + cwhw[1] for cwhw in cw_and_hws ] 
+    lowest_wind_grade = min(grades)    
+    if lowest_wind_grade >= 199998: 
+        hold_point = get_hold_point(plane) 
+        return False, ("high crosswinds", hold_point)
+    runway_best_wind = DAB_RUNWAY_INFO[grades.index(lowest_wind_grade)]
+
+    debug_stuff_delete_me.append((runway_best_wind[0], runway_best_wind[1]))
+    debug_stuff_delete_me.append(gates[plane.flight_data["gate"]])
+
+    try:
+        path = calculate_traffic_for_runway(runway_best_wind, plane, queue)
+        plane.current_path = path 
+    except:
+        hold_point = get_hold_point(plane) 
+        return False, ("traffic congestion", hold_point)
+
+    fix_point = get_hold_point(plane) 
+    return True, (fix_point, RUNWAY_NAMES[grades.index(lowest_wind_grade)]) 
 
 
+def calculate_traffic_for_runway(runway_info, plane, plane_queue): 
+    # return -1 if too congested (not a path to the gate) 
+    # -2 if not available (plane is using it right now) 
+    for plane in plane_queue:
+        status_value = abs(plane.get_status().value)
+        if status_value >= 9 and status_value <= 11: # flight status of taking off to climbing 
+            route = plane.runway_path
+            facing = plane.facing
+
+            x_or_y_idx = 0 
+            if facing.value % 180 != 0: # towards east or west 
+                x_or_y_idx = 1 
+
+            if runway_info[x_or_y_idx] == route[len(route) - 1][x_or_y_idx]:
+                raise Exception
+
+    path_to_gate = get_path_to_gate(runway_info, plane, plane_queue)
+
+    if path_to_gate == []:
+        raise Exception 
+
+    plane.set_debug_paths([path_to_gate])
+
+    return path_to_gate 
+
+
+def delete_this_function():
+    global debug_stuff_delete_me
+    return debug_stuff_delete_me
+
+
+def get_path_to_gate(runway_info, plane, plane_queue):
+    gate_loc = gates[plane.flight_data["gate"]] 
+    min_runway_req = plane.aircraft_info["required_runway_space"]
+    runway_angle = runway_info[3]
+
+    mx = runway_info[0] 
+    my = runway_info[1]
+    if runway_angle == 70:
+        mx += min_runway_req 
+    elif runway_angle == 250:
+        mx -= min_runway_req
+    elif runway_angle == 160:
+        my += min_runway_req
+    else:
+        my -= min_runway_req
+
+    debug_stuff_delete_me.append((mx, my))
+
+    map = get_map()
+    queue = [(mx, my)]
+    visited = [(mx, my)]
+    parent_map = {}
+    other = get_other_taxi_paths(plane, plane_queue)
+    other_taxi_paths = [node for path in other for node in path]
+
+    while queue:
+        current_node = queue.pop(0) 
+        runway_flag = False 
+
+        if current_node[0] == gate_loc[0] and current_node[1] == gate_loc[1]: 
+            path = []
+            temp_node = current_node
+            while temp_node != (mx, my):
+                path.append(temp_node)
+                temp_node = parent_map[temp_node]
+            path.reverse()
+            return path
+
+        for dx, dy in [(0, -1), (0, 1), (-1, 0), (1, 0)]:
+            next_node = (current_node[0] + dx, current_node[1] + dy)
+            next_node_gate_flag= map[next_node[0]][next_node[1]].type == TileType.GATE
+            next_node_runway_flag= map[next_node[0]][next_node[1]].type == TileType.RUNWAY
+
+            if next_node_runway_flag and \
+                map[current_node[0]][current_node[1]].type == TileType.RUNWAY and \
+                ((runway_angle == 70 and next_node[0] <= mx) or \
+                    (runway_angle == 250 and next_node[0] >= mx) or \
+                    (runway_angle == 160 and next_node[1] <= my) or \
+                    (runway_angle == 350 and next_node[1] >= my)):
+                continue
+
+            if next_node_gate_flag and \
+                (next_node[0] != gate_loc[0] or next_node[1] != gate_loc[1]): 
+                continue
+
+            if next_node in other_taxi_paths:
+                continue
+
+            node = map[next_node[0]][next_node[1]]
+            type_val = node.type.value
+
+            if next_node not in visited and type_val != 0: # avoid nothing (0) tile types 
+                visited.append(next_node)
+                queue.append(next_node)
+                parent_map[next_node] = current_node
+
+    return []  
+
+
+def get_other_taxi_paths(filter_plane, queue):
+    paths = []
+    for plane in queue:
+        if filter_plane is plane: 
+            continue
+        if plane.get_status().value != 5 and plane.get_status().value != -6 and plane.get_status().value != 0: 
+            continue
+        paths.append(plane.get_current_path())
+
+    return paths
+
+
+def get_hold_point(plane):
+    TOTAL_LOOP_DIST = 294 
+    distances = [TOTAL_LOOP_DIST for _ in range(len(HOLD_POINTS_INFO))]        
+    min_runway_req = plane.aircraft_info["required_runway_space"] + 3 # +3 since coming in fast 
+    crosswind_limit = plane.aircraft_info["crosswind_limit"]
+    wind_grades = []
+    names = []
+
+    pos = plane.get_pos()
+    for i, hp_name in enumerate(HOLD_POINTS_INFO):
+        names.append(hp_name)
+        info = HOLD_POINTS_INFO[hp_name]
+        start = get_holdpoint_paths(info[0], info[1], info[2], info[3], just_start=True)
+        distances[i] += int( math.sqrt(((start[0] - pos[0]) ** 2) + ((start[1] - pos[1]) ** 2)) ) 
+
+        offset = distances[i]
+        cws = []
+        hws = []
+        runway_angle = info[4]
+        for j in range(min_runway_req):
+            wind = winds[offset + j]
+            cws.append(calculate_crosswind(runway_angle, wind[0], wind[1]))
+            hws.append(calculate_headwind(runway_angle, wind[0], wind[1]))
+
+        cw_avg = sum(cws) // (len(cws) + 1)
+        if cw_avg >= crosswind_limit:
+            wind_grades.append(99999)
+
+        hw_avg = sum(hws) // (len(hws) + 1)
+        wind_grades.append( abs(cw_avg) + hw_avg )
+
+    lowest_wind_grade = min(wind_grades)    
+    best_wind_index = wind_grades.index(lowest_wind_grade)
+
+    return names[best_wind_index]
+
+### 
+    # end runway path -> (a, b) 
+    # facing dir ->
+    # N - 0 :: y :: ns = 1 
+    # E - 3 :: x :: ew = 1
+    # S - 2 :: y :: ns = -1
+    # W - 1 :: x :: ew = -1
+    # path variant -> path_num (1 for first path)
+    # first paths: 
+    # north - left 
+    # south - right  
+    # east - bottom 
+    # west - top 
+def get_holdpoint_paths(a, b, facing_dir, path_num, just_start=False): 
+    ns = facing_dir % 2 == 0 
+    ew = not ns 
+    ns *= 1 if facing_dir % 3 == 0 else -1 
+    ew *= -1 if facing_dir % 3 == 0 else 1 
+
+    bx = a + ((LOOP_LENGTH + ENTRY_SPACE + DIAG_SIDE_LENGTH) * ew) 
+    by = b + ((LOOP_LENGTH + ENTRY_SPACE + DIAG_SIDE_LENGTH) * ns) 
+
+    path_1 = []
+    x1 = bx - ((LOOP_WIDTH + DIAG_SIDE_LENGTH) * ns)
+    y1 = by - ((LOOP_WIDTH + DIAG_SIDE_LENGTH) * ew)
+
+    if just_start:
+        if path_num == 1:
+            return (x1, y1)
+        else:
+            if ew == 0:
+                return ((2 * bx) - x1, y1)
+            else:
+                return(x1, (2 * by) - y1)
+
+    for _ in range(LOOP_LENGTH + ENTRY_SPACE):
+        path_1.append((x1, y1))
+        x1 -= 1 * ew 
+        y1 -= 1 * ns 
+
+    for _ in range(LOOP_WIDTH):
+        path_1.append((x1, y1))
+        x1 += 1 * ns 
+        y1 += 1 * ew 
+
+    for _ in range(LOOP_LENGTH):
+        path_1.append((x1, y1))
+        x1 += 1 * ew
+        y1 += 1 * ns 
+
+    for _ in range(LOOP_WIDTH):
+        path_1.append((x1, y1))
+        x1 -= 1 * ns 
+        y1 -= 1 * ew 
+
+    for _ in range(LOOP_LENGTH):
+        path_1.append((x1, y1))
+        x1 -= 1 * ew 
+        y1 -= 1 * ns 
+
+    for _ in range(LOOP_WIDTH):
+        path_1.append((x1, y1))
+        x1 += 1 * ns 
+        y1 += 1 * ew 
+    
+    for _ in range(ENTRY_SPACE):
+        path_1.append((x1, y1))
+        if ew == 0:
+            x1 += 1 * ns
+            y1 -= 1 * ns
+        else:
+            x1 -= 1 * ew
+            y1 += 1 * ew
+
+    if path_num == 1:
+        return path_1
+
+    if ew == 0:
+        path_2 = [((2 * bx) - node[0], node[1]) for node in path_1]
+    else:
+        path_2 = [(node[0], (2 * by) - node[1]) for node in path_1]
+
+    return path_2
+
+
+def get_best_cws_and_hws(min_runway_req, crosswind_limit, pos, clock_ticks, flight_ticks): 
+    cw_and_hws = []
+    for runway in DAB_RUNWAY_INFO:
+        if runway[2] < min_runway_req:
+            cw_and_hws.append((99999, 99999))
+            continue
+
+        path = bresenhams_line_algorithm(pos[0], pos[1], runway[0], runway[1])
+        ticks_until_runway = flight_ticks * len(path) 
+        at_runway_tick_num = clock_ticks + ticks_until_runway # TODO: THIS IS WRONG IF ADJUST WIND BEING CALLED
+        cws = []
+        hws = []
+        runway_angle = runway[3] 
+
+        for i in range(min_runway_req):
+            wind = winds[at_runway_tick_num + i] 
+            cws.append(calculate_crosswind(runway_angle, wind[0], wind[1]))
+            hws.append(calculate_headwind(runway_angle, wind[0], wind[1]))
+
+        cw_avg = sum(cws) // (len(cws) + 1)
+        if cw_avg >= crosswind_limit:
+            cw_and_hws.append((99999, 99999))
+            continue
+
+        hw_avg = sum(hws) // (len(hws) + 1)
+        cw_and_hws.append((cw_avg, hw_avg))
+
+    return cw_and_hws

@@ -1,38 +1,9 @@
 from utils.coms import CommunicationType 
-from utils.logger import logger
+from utils.logger import logger, ARTSSClock
 from utils.map_handler import TileType, find_taxiway_path, get_map, get_node_type, get_wind_info, is_plane_clear_to_land
 from .plane_agent import DEPARTED_ALTITUDE, get_plane_queue
 
 AIRPORT = "DAB"
-
-NATO_PHONETIC_ALPHABET = {
-    'A': "Alpha",
-    'B': "Bravo",
-    'C': "Charlie",
-    'D': "Delta",
-    'E': "Echo",
-    'F': "Foxtrot",
-    'G': "Golf",
-    'H': "Hotel",
-    'I': "India",
-    'J': "Juliett",
-    'K': "Kilo",
-    'L': "Lima",
-    'M': "Mike",
-    'N': "November",
-    'O': "Oscar",
-    'P': "Papa",
-    'Q': "Quebec",
-    'R': "Romeo",
-    'S': "Sierra",
-    'T': "Tango",
-    'U': "Uniform",
-    'V': "Victor",
-    'W': "Whiskey",
-    'X': "X-ray",
-    'Y': "Yankee",
-    'Z': "Zulu"
-}
 
 class Agent():
     def send_com(self, com, plane):
@@ -70,6 +41,7 @@ class Agent():
 
             plane.runway_path = full_path[i+1:] 
             plane.current_path = full_path[:i+1]
+            plane.set_debug_paths([plane.current_path])
 
             return (f"{fn}, taxi to runway {runway_number}, via taxiways {taxiways}, hold short of runway {runway_number}.", CommunicationType.TAXI_CLEARANCE)
             return (f"", CommunicationType.NONE)
@@ -86,17 +58,11 @@ class Agent():
         if ct == CommunicationType.DEPARTURE:
             return (f"{fn}, radar contact, climb to {DEPARTED_ALTITUDE}, proceed on course.", CommunicationType.DEPARTURE)
         if ct == CommunicationType.INITIAL_CONTACT:
-            # TODO: check traffic congestion, wind, check runway availability (landing planes should have the higheset priority anyways) 
-            clear = True
-            #clear, info = is_plane_clear_to_land(plane) 
+            clear, info = is_plane_clear_to_land(plane, ARTSSClock, get_plane_queue()) 
             if not clear:
-                # TODO: (flight num, reason for hold, hold fix point, altitude, expected clearance time)
-                #"[Flight Number], Approach Control, due to [reason for hold, e.g., traffic congestion, runway unavailability], hold at [Hold Fix Name or Navaid] on the [specified radial, course, or bearing], maintain [Altitude], expect further clearance at [Time or Condition]."
-                pass
+                return (f"{fn}, approach control, due to {info[0]}, hold at {info[1]} maintain {plane.altitude}.")
             else:
-                # TODO: return runway clearance (flight num, fix point, altitude, runway number) 
-                #"[Flight Number], proceed direct to [Fix], descend and maintain [Altitude], expect vector for ILS approach runway [Number]."
-                pass
+                return (f"{fn}, proceed direct to {info[0]}, descend and maintain {DEPARTED_ALTITUDE}, expect vector for ILS approach runway {info[1]}.")
         return None 
 
 

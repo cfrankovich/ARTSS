@@ -12,6 +12,22 @@ ARTSSClock.start_time = "1530" # 3:30pm
 current_state = State.SIMULATION
 ui.transition_state(current_state)
 
+# # # BEGIN DEBUGGING # # #
+
+from src.plane_agent import Plane, plane_queue
+from utils.flight_data_handler import FlightStatus
+from utils.coms import CommunicationType
+
+
+a = Plane(FlightStatus.DEBUG, 39, 16)
+plane_queue.append(a)
+com = (f"Airport Ground, debug, ready to taxi.", CommunicationType.TAXI_CLEARANCE)
+sim.atc_agent.receive_com(com, a)
+
+plane_queue.append(Plane(FlightStatus.CRUISING, 0, 0))
+
+# # #  END DEBUGGING  # # #
+
 while current_state != State.QUIT:
     sim_event = sim.tick()
     ui.render()

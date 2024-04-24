@@ -36,7 +36,8 @@ def get_plane_queue():
 def init_plane_queue(num_planes):
     global plane_queue
     for _ in range(num_planes):
-        plane_queue.append(Plane())
+        pass
+        #plane_queue.append(Plane())
 
 def get_rainbow_color(amt, idx):
     global color_index
@@ -52,10 +53,12 @@ def get_rainbow_color(amt, idx):
     return color
 
 class Plane(pygame.sprite.Sprite):
-    def __init__(self):
+    def __init__(self, status=FlightStatus.AT_GATE, mx=0, my=0):
         super().__init__() 
         #self.flight_data = generate_flight_data(gates_in_use) 
-        self.flight_data = generate_flight_data(gates_in_use, status=FlightStatus.CRUISING) 
+        self.mx = mx
+        self.my = my
+        self.flight_data = generate_flight_data(gates_in_use, status) 
         self.aircraft_info = generate_aircraft_info() 
         gates_in_use.append(self.flight_data["gate"])
         self.current_path = [] 
@@ -68,6 +71,7 @@ class Plane(pygame.sprite.Sprite):
         self.ticks = 0
         self.grades = []
         self.color = get_rainbow_color(10, 'lasdjfoasd8fu9as8df idc blajhablhahhhh')
+        self.hold_point = None
 
     def get_grades(self):
         return self.grades
@@ -105,10 +109,9 @@ class Plane(pygame.sprite.Sprite):
             self.flight_data["status"] = FlightStatus.REQUEST_TO_APPROACH
             random_direction = Direction(random.randint(0, 3) * 90)
             crusing_pos = get_cruising_pos(random_direction)
-            print(crusing_pos[0])
             self.current_path = generate_cruising_path(self.aircraft_info["required_runway_space"] + 3, crusing_pos) # +3 since theyre coming in fast
             return crusing_pos
-        return (None, 0, 0)
+        return (Direction.NORTH, self.mx, self.my)
 
     def receive_com(self, atc, com):
         fn = self.flight_data["flight_number"]
@@ -131,7 +134,7 @@ class Plane(pygame.sprite.Sprite):
         elif ct == CommunicationType.TAKEOFF_CLEARANCE:
             runway_number = self.flight_data["runway"] 
             self.current_path = self.runway_path
-            self.aircraft_info["ticks_per_tile"] = 1 # speedy takeoff
+            self.aircraft_info["ticks_per_tile"] = self.aircraft_info["flight_ticks_per_tile"] 
             self.d_altitude = DEPARTED_ALTITUDE / len(self.current_path)
             self.set_status(FlightStatus.AIRBORNE)
             self.send_com(atc, (f"Runway {runway_number}, cleared for takeoff, {fn}.", CommunicationType.CONFIRM_TAKEOFF_CLEARANCE))
@@ -162,6 +165,7 @@ class Plane(pygame.sprite.Sprite):
             ra = random.randint(828, 2828) 
             information = np.random.choice(["Alpha", "Bravo", "Charlie"], p=[0.50, 0.42, 0.08])
             com = (f"{fn}, with you, {DEPARTED_ALTITUDE + ra} descending to {DEPARTED_ALTITUDE}, with information {information}.", CommunicationType.INITIAL_CONTACT)
+            self.set_status(FlightStatus.DEBUG)
 
         logger.log_flight_com(fn, com[0])
         atc.receive_com(com, self)
@@ -225,7 +229,9 @@ class Plane(pygame.sprite.Sprite):
         return self.flight_data["status"]
 
     def set_status(self, new_status):
-        self.flight_data["status"] = new_status;
+        if self.get_status() == FlightStatus.DEBUG:
+            return
+        self.flight_data["status"] = new_status
 
     def extract_taxiways(self, com):
         parts = com.split(", via taxiways ")

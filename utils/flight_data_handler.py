@@ -25,6 +25,7 @@ class FlightStatus(Enum):
     VACATING_RUNWAY = -18 # pilot sends "AFTER LANDING" com 
     TAXIING_TO_GATE = 19  
     SHUTTING_DOWN = 20 # pilot sends "AT THE GATE" com - marks success of landing 
+    DEBUG = 0 
 
 
 class PlaneCategory(Enum):
@@ -70,6 +71,7 @@ def generate_aircraft_info():
             "crosswind_limit" : 30, # knots
             "required_runway_space" : 20, # num squares required to takeoff and land
             "ticks_per_tile" : 3, # num clock cycles to cover a tile (speed kinda) 
+            "flight_ticks_per_tile" : 2 # num clock cyles to cover a tile while airborne
         }
     elif aircraft_type == PlaneCategory.DEFAULT:
         return {
@@ -77,6 +79,7 @@ def generate_aircraft_info():
             "crosswind_limit" : 20, # knots
             "required_runway_space" : 15, # num squares required to takeoff and land
             "ticks_per_tile" : 2, # num clock cycles to cover a tile (speed kinda) 
+            "flight_ticks_per_tile" : 1 # num clock cyles to cover a tile while airborne
         }
     # light plane 
     return {
@@ -84,4 +87,5 @@ def generate_aircraft_info():
         "crosswind_limit" : 12,
         "required_runway_space" : 8, # num squares required to takeoff and land
         "ticks_per_tile" : 1, # num clock cycles to cover a tile (speed kinda) 
+        "flight_ticks_per_tile" : 1 # num clock cyles to cover a tile while airborne
     }

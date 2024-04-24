@@ -12,13 +12,13 @@ STARTING_PLANE_COUNT = 1
 class ARTSS():
     def __init__(self):
         self.atc_agent = Agent()
-        init_plane_queue(STARTING_PLANE_COUNT)
-        init_winds(300)
-        #debug_init_winds(300)
+        #init_plane_queue(STARTING_PLANE_COUNT)
+        #init_winds(300)
+        debug_init_winds(9999)
 
     def tick(self):
         ARTSSClock.tick()
-        adjust_wind()
+        #adjust_wind()
         self.address_queue()
         return Event.NONE
     
@@ -26,7 +26,9 @@ class ARTSS():
         for plane in plane_queue:
             status = plane.get_status()
 
-            if status == FlightStatus.HOLDING_SHORT: # reminder for atc to check on the plane w/o sending com
+            if status == FlightStatus.DEBUG:
+                continue
+            elif status == FlightStatus.HOLDING_SHORT: # reminder for atc to check on the plane w/o sending com
                 self.atc_agent.receive_com(("", CommunicationType.HOLDING_SHORT), plane)
                 continue
             elif status == FlightStatus.WAITING_FOR_TAKEOFF_CLEARANCE: # another reminder 
@@ -34,7 +36,5 @@ class ARTSS():
                 continue
             elif int(status.value) > 0: # positive enum values are not dependent on the atc
                 plane.update()
-                plane.send_com(self.atc_agent)
-                continue
 
             plane.send_com(self.atc_agent)

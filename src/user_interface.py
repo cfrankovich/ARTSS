@@ -3,8 +3,8 @@ import ast
 import math
 import random
 from utils.states import State, Event 
-from utils.map_handler import TileType, get_map, get_node_type, get_wind_info, MIN_WIND_SPEED, MAX_WIND_SPEED
-from .plane_agent import DEPARTED_ALTITUDE, plane_queue
+from utils.map_handler import TileType, get_map, get_node_type, get_wind_info, MIN_WIND_SPEED, MAX_WIND_SPEED, gates, delete_this_function 
+from .plane_agent import DEPARTED_ALTITUDE, plane_queue, gates_in_use
 import math
 import numpy as np 
 import matplotlib as plt
@@ -160,15 +160,23 @@ class ARTSSCanvas():
         self.airport_background = pygame.transform.scale(airport_image, (WIDTH, HEIGHT))
 
         # grid for testing purposes
-        grid_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        self.grid_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        highlight_me = [ gates[g] for g in gates_in_use ]
         for i, x in enumerate(get_map()):
             for j, y in enumerate(x):
-                #pos = y.get_pos()
-                if y.type == TileType.NOTHING: 
-                    continue 
-                pygame.draw.rect(grid_surface, (255, 0, 255), (i*GRID_SPACE_SIZE, j*GRID_SPACE_SIZE, 
+                pos = y.get_pos()
+                draw_it = False
+                for test_pos in highlight_me:
+                    if pos[0] == test_pos[0] and pos[1] == test_pos[1]:
+                        draw_it = True
+                        break
+                if draw_it is False:
+                    continue
+                #if y.type == TileType.NOTHING: 
+                    #continue 
+                pygame.draw.rect(self.grid_surface, (255, 0, 255), (i*GRID_SPACE_SIZE, j*GRID_SPACE_SIZE, 
                                                 GRID_SPACE_SIZE, GRID_SPACE_SIZE), 1)
-        self.rot_grid_surface = pygame.transform.rotate(grid_surface, 25)
+        self.rot_grid_surface = pygame.transform.rotate(self.grid_surface, 25)
 
         large_plane_img = pygame.image.load("graphics/large_plane.png")
         default_plane_img = pygame.image.load("graphics/default_plane.png")
@@ -184,14 +192,35 @@ class ARTSSCanvas():
         self.debug_flag = False
         self.debug_path_num = -1
 
+
+    def debug_function_delete_me(self):
+        highlight_me = delete_this_function() 
+        for i, x in enumerate(get_map()):
+            for j, y in enumerate(x):
+                pos = y.get_pos()
+                draw_it = False
+                for test_me in highlight_me:
+                    if pos[0] == test_me[0] and pos[1] == test_me[1]:
+                        draw_it = True
+                        break
+                if draw_it is False:
+                    continue
+                #if y.type == TileType.NOTHING: 
+                    #continue 
+                pygame.draw.rect(self.grid_surface, (255, 0, 255), (i*GRID_SPACE_SIZE, j*GRID_SPACE_SIZE, 
+                                                GRID_SPACE_SIZE, GRID_SPACE_SIZE), 1)
+        self.rot_grid_surface = pygame.transform.rotate(self.grid_surface, 25)
+
+
     def render(self):
         screen = self.ui.screen
         screen.fill((0, 0, 0))
+        self.debug_function_delete_me()
 
         airport_background_rect = self.airport_background.get_rect(center=(WIDTH / 2, HEIGHT / 2))
         screen.blit(self.airport_background, airport_background_rect.topleft)
 
-        #screen.blit(self.rot_grid_surface, (WIDTH/2 - self.rot_grid_surface.get_width() / 2, HEIGHT / 2 - self.rot_grid_surface.get_height() / 2))
+        screen.blit(self.rot_grid_surface, (WIDTH/2 - self.rot_grid_surface.get_width() / 2, HEIGHT / 2 - self.rot_grid_surface.get_height() / 2))
             
         #screen.blit(ps, (WIDTH/2 - ps.get_width() / 2, HEIGHT/2 - ps.get_height() / 2))
         ps = pygame.transform.rotate(self.plane_surface, 25) 
@@ -251,12 +280,13 @@ class ARTSSCanvas():
             else:
                 paths = plane.get_debug_paths()
             """
-            #paths = plane.get_debug_paths()
-            paths = [plane.current_path]
+            paths = plane.get_debug_paths()
+            #paths = [plane.current_path]
             color = plane.color
             #color = get_rainbow_color(len(plane_queue), n) 
             for j, path in enumerate(paths):
-                prev = plane.get_map_pos()
+                #prev = plane.get_map_pos()
+                prev = path[0]
                 for i, node in enumerate(path):
                     top_left = (node[0] * GRID_SPACE_SIZE, node[1] * GRID_SPACE_SIZE) 
                     center = (top_left[0] + half_grid_space_size, top_left[1] + half_grid_space_size) 
