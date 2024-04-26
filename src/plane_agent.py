@@ -5,7 +5,6 @@ from utils.map_handler import gates, get_facing_direction_from_gate, Direction, 
 from utils.logger import logger
 import matplotlib as plt
 import numpy as np
-import random
 
 AIRPORT = "DAB"
 DEPARTURE_FREQUENCY = "125.800 MHz"
@@ -69,6 +68,11 @@ class Plane(pygame.sprite.Sprite):
         self.ticks = 0
         self.grades = []
         self.color = get_rainbow_color(10, 'lasdjfoasd8fu9as8df idc blajhablhahhhh')
+
+        self.x = 0
+        self.y = 0
+        self.image = pygame.Surface((100,100))
+        self.rect = self.image.get_rect()
 
     def get_grades(self):
         return self.grades
@@ -204,7 +208,7 @@ class Plane(pygame.sprite.Sprite):
         return self.flight_data["status"]
 
     def set_status(self, new_status):
-        self.flight_data["status"] = new_status;
+        self.flight_data["status"] = new_status
 
     def extract_taxiways(self, com):
         parts = com.split(", via taxiways ")

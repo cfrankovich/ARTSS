@@ -1,19 +1,18 @@
 import pygame
 import ast
 import math
-import random
 from utils.states import State, Event 
 from utils.map_handler import TileType, get_map, get_node_type, get_wind_info, MIN_WIND_SPEED, MAX_WIND_SPEED
 from .plane_agent import DEPARTED_ALTITUDE, plane_queue
-import math
 import numpy as np 
 import matplotlib as plt
 from utils.logger import ARTSSClock
 from utils.flight_data_handler import FlightStatus
-import random
-from src.message_box import MessageBox
+from .message_box import MessageBox
+from utils.logger import Logger
 
-FPS = 30 
+
+FPS = 30
 WIDTH = 1280
 HEIGHT = 720
 GRID_SPACE_SIZE = 20
@@ -25,6 +24,7 @@ COMPASS_BG_COLOR = (27, 27, 37)
 #LOWER_COMPASS_BG_COLOR = (95, 95, 117)
 LOWER_COMPASS_BG_COLOR = (0, 0, 0)
 COMPASS_DIR_COLOR = (190, 180, 180)
+
 
 def get_status_text(plane):
     status = plane.get_status()
@@ -150,6 +150,32 @@ def draw_text_with_outline(surface, text, font, pos, text_color, outline_color, 
     text_surface = font.render(text, True, text_color)
     surface.blit(text_surface, pos)
 
+
+def draw_rect_alpha(surface, color, rect, borders=True, text=None):
+    shape_surf = pygame.Surface(pygame.Rect(rect).size, pygame.SRCALPHA)
+    if borders:
+        pygame.draw.rect(shape_surf, color, shape_surf.get_rect(), 4, 4)
+    else:
+        pygame.draw.rect(shape_surf, color, shape_surf.get_rect())
+    if text is not None:
+        surface.blit(text, rect)
+    surface.blit(shape_surf, rect)
+
+def add_outline_to_image(image: pygame.Surface, thickness: int, color: tuple, color_key: tuple = (0, 0, 0)) -> pygame.Surface:
+    mask = pygame.mask.from_surface(image)
+    mask_surf = mask.to_surface(setcolor=color)
+    mask_surf.set_colorkey((0, 0, 0))
+
+    new_img = pygame.Surface((image.get_width() + 2, image.get_height() + 2))
+    new_img.fill(color_key)
+    new_img.set_colorkey(color_key)
+
+    for i in -thickness, thickness:
+        new_img.blit(mask_surf, (i + thickness, thickness))
+        new_img.blit(mask_surf, (thickness, i + thickness))
+    new_img.blit(image, (thickness, thickness))
+
+    return new_img
 
 class ARTSSCanvas():
     def __init__(self, ui):
@@ -299,16 +325,26 @@ class ARTSSCanvas():
             plane_img_rot = pygame.transform.rotate(plane_img, facing_angle)
             plane_img_scaled = pygame.transform.scale(plane_img_rot, (width, height))
             self.plane_surface.blit(plane_img_scaled, (x, y))
-
+            planefont = pygame.font.Font(None, 18)
+            planetext = planefont.render(plane.flight_data["flight_number"], True, color)
+            self.plane_surface.blit(planetext, (x - 8, y - 8))
+            plane.x = x
+            plane.y = y
+            plane.image = plane_img_scaled
+            plane.rect = plane.image.get_rect(topleft = (plane.x,plane.y))
 
 class Simulation ():
     def __init__(self, ui):
         self.ui = ui
         self.artss_canvas = ARTSSCanvas(ui)
-        self.message_font = pygame.font.Font(None, 25)
-        self.menufont = pygame.font.Font(None, 40)
-        self.titlefont= pygame.font.Font(None, 60)
 
+        self.message_font = pygame.font.Font(None, 25)
+        self.menufont = pygame.font.SysFont("britannic", 35)
+        self.titlefont= pygame.font.SysFont("britannic", 55)
+        self.color_not_hovering = pygame.Color(255,255,255,215)
+        self.color_hovering = pygame.Color(128,128,128,215)
+        self.transparent = pygame.Color(0,0,0,0)
+        self.return_box_color = self.color_not_hovering
         self.titletext = self.titlefont.render("Simulation", True, "White")
         self.titletext_widget = self.titletext.get_rect(midtop = (ui.screen_width/2, 0))
         self.return_text = self.menufont.render("<--Return", True, "Black")
@@ -317,91 +353,192 @@ class Simulation ():
         self.play_button = pygame.transform.smoothscale(self.play_button, (ui.screen_width/30, ui.screen_height/20))
         self.pause_button = pygame.image.load("graphics/pausebutton.png")
         self.pause_button = pygame.transform.smoothscale(self.pause_button, (ui.screen_width/30, ui.screen_height/20))
+
+        self.show_log = False
+        self.show_manual_controls = False
         self.logheader_text = self.menufont.render("Log", True, "White")
-        self.logheader_widget = self.logheader_text.get_rect(center = (ui.screen_width/6, 50))
+        self.logheader_text = add_outline_to_image(self.logheader_text, 2, (0,0,0))
+        self.logheader_button = self.logheader_text.get_rect(center = (ui.screen_width/15, 50)) 
+        self.logheader_button_color = self.transparent
+
+        self.controls_text = self.menufont.render("Manual Controls", True, "CYAN")
+        self.controls_text = add_outline_to_image(self.controls_text, 2, (0,0,0))
+        self.controls_button = self.controls_text.get_rect(center = (ui.screen_width/4.8, 50))
+        self.controls_button_color = self.transparent
+        
         self.logbox = pygame.Rect((0, 75), (ui.screen_width/3, ui.screen_height - 75))
         self.logoutgoing_text = self.menufont.render("Outgoing", True, "Blue")
+        self.logoutgoing_text.set_alpha(127)
         self.logoutgoing_widget = self.logoutgoing_text.get_rect(center = (ui.screen_width/6 - 5, 95))
         self.logoutgoingbox = pygame.Rect((0, 115), (ui.screen_width/3, ui.screen_height/2 - 115))
         self.logincoming_text = self.menufont.render("Incoming", True, "Green")
+        self.logoutgoing_text.set_alpha(127)
         self.logincoming_widget = self.logincoming_text.get_rect(center = (ui.screen_width/6 - 5, ui.screen_height/2 + 20))
-        self.logincomingbox = pygame.Rect((0, ui.screen_height/2 + 40), (ui.screen_width/3, ui.screen_height - 75))
+        self.logincomingbox = pygame.Rect((0, ui.screen_height/2 + 40), (ui.screen_width/3, ui.screen_height/2 - 40))
+
+        self.controlsbox = self.logbox = pygame.Rect((0, 75), (ui.screen_width/3, ui.screen_height - 75))
         
         self.outgoing_messages = pygame.sprite.Group()
+        self.last_atc_message = ""
+        self.incoming_messages = pygame.sprite.Group()
+        self.last_flight_message = ""
 
-        self.airport_text = self.menufont.render("Airport", True, "White")
-        self.simbox = pygame.Rect((ui.screen_width/3, 75), (ui.screen_width * 2/3, ui.screen_height - 75))
+        self.planes_info = pygame.sprite.Group()
+    
+    def change_button_color(self):
+        mouse_pos = pygame.mouse.get_pos()
+        if self.return_button.collidepoint(mouse_pos):
+            self.return_box_color = self.color_hovering
+        else:
+            self.return_box_color = self.color_not_hovering
+        if self.logheader_button.collidepoint(mouse_pos):
+            self.logheader_button_color = self.color_hovering
+        else:
+            self.logheader_button_color = self.transparent
+        if self.controls_button.collidepoint(mouse_pos):
+            self.controls_button_color = self.color_hovering
+        else:
+            self.controls_button_color = self.transparent
 
     def determine_boxheight(self, text, font, allowable_width):
         fw, fh = pygame.font.Font.size(font, text)
-        num_col = math.ceil(fw/allowable_width)
-        box_height = fh * num_col + 3
+        num_row = math.ceil(fw/allowable_width)
+        box_height = fh * num_row + 3
         return box_height
 
-    def create_messagebox(self, text, font, allowable_width, screen):
+    def create_messagebox(self, text, font, color, allowable_width, screen, outgoing=True):
         box_height = self.determine_boxheight(text, font, allowable_width)
-        if (len(self.outgoing_messages) == 0):
-            current_y = self.logoutgoingbox.topleft[1] + 4
+        if outgoing:
+            if (len(self.outgoing_messages) == 0):
+                current_y = self.logoutgoingbox.topleft[1] + 4
+            else:
+                current_y = self.outgoing_messages.sprites()[len(self.outgoing_messages) - 1].rect.bottom
+            while not self.logoutgoingbox.collidepoint((self.logoutgoingbox.topleft[0], current_y + box_height)):
+                dy = self.outgoing_messages.sprites()[0].rect.height
+                self.outgoing_messages.sprites()[0].kill()
+                self.outgoing_messages.update(-dy)
+                current_y = self.outgoing_messages.sprites()[len(self.outgoing_messages) - 1].rect.bottom
+            message = MessageBox(allowable_width -  10, box_height, self.logoutgoingbox.topleft[0] + 5, current_y, screen, text, color, 127)
+            self.outgoing_messages.add(message)
         else:
-            current_y = self.outgoing_messages.sprites()[len(self.outgoing_messages) - 1].rect.bottom
-        while not self.logoutgoingbox.collidepoint((self.logoutgoingbox.topleft[0], current_y + box_height)):
-            dy = self.outgoing_messages.sprites()[0].rect.height
-            self.outgoing_messages.sprites()[0].kill()
-            self.outgoing_messages.update(-dy)
-            current_y = self.outgoing_messages.sprites()[len(self.outgoing_messages) - 1].rect.bottom
-        message = MessageBox("Black", allowable_width -  10, box_height, self.logoutgoingbox.topleft[0] + 5, current_y, screen, text)
-        self.outgoing_messages.add(message)
+            if (len(self.incoming_messages) == 0):
+                current_y = self.logincomingbox.topleft[1] + 4
+            else:
+                current_y = self.incoming_messages.sprites()[len(self.incoming_messages) - 1].rect.bottom
+            while not self.logincomingbox.collidepoint((self.logincomingbox.topleft[0], current_y + box_height)):
+                dy = self.incoming_messages.sprites()[0].rect.height
+                self.incoming_messages.sprites()[0].kill()
+                self.incoming_messages.update(-dy)
+                current_y = self.incoming_messages.sprites()[len(self.incoming_messages) - 1].rect.bottom
+            message = MessageBox(allowable_width -  10, box_height, self.logincomingbox.topleft[0] + 5, current_y, screen, text, color,127)
+            self.incoming_messages.add(message)
 
+    def display_plane_info(self, font, plane):
+        color = plane.color
+        plane_info = plane.flight_data["flight_number"] + ": " + get_status_text(plane)
+        box_height = self.determine_boxheight(plane_info, font, 100)
+        plane_box = MessageBox(100, box_height, plane.x - 15, plane.y - box_height - 15, self.artss_canvas.plane_surface, plane_info, color, 175)
+        self.planes_info.add(plane_box)
+     
     def render(self):
-        self.artss_canvas.render()
-
         screen = self.ui.screen
-        #screen.fill((0, 0, 0))
-
-        pygame.draw.rect(screen, "White", self.return_button) 
+        self.artss_canvas.render()
+    
+        self.change_button_color()
+        draw_rect_alpha(screen, self.return_box_color, self.return_button, False)
         pygame.draw.rect(screen, "Black", self.return_button, 1, 3)
         screen.blit(self.return_text, self.return_button)
         screen.blit(self.play_button, (1125, 240))
         screen.blit(self.pause_button, (1190, 240))
-        screen.blit(self.logheader_text, self.logheader_widget)
-        pygame.draw.rect(screen, "White", self.logbox, 5, 5)
-        #pygame.draw.rect(screen, "White", self.simbox, 5, 5)
-        screen.blit(self.logoutgoing_text, self.logoutgoing_widget)
-        pygame.draw.rect(screen, "White", self.logoutgoingbox, 3, 2)
-        screen.blit(self.logincoming_text, self.logincoming_widget)
-        pygame.draw.rect(screen, "White", self.logincomingbox, 3, 2)
+        draw_rect_alpha(screen, self.logheader_button_color, self.logheader_button)
+        screen.blit(self.logheader_text, self.logheader_button)
+        draw_rect_alpha(screen, self.controls_button_color, self.controls_button)
+        screen.blit(self.controls_text, self.controls_button)
+        if self.show_log:
+            draw_rect_alpha(screen, (255,255,255,127) , self.logbox)
+            draw_rect_alpha(screen, (255,255,255,127), self.logoutgoingbox)
+            screen.blit(self.logoutgoing_text, self.logoutgoing_widget)
+            draw_rect_alpha(screen, (255,255,255,127), self.logincomingbox)
+            screen.blit(self.logincoming_text, self.logincoming_widget)
 
-        self.outgoing_messages.draw(screen)
-        self.outgoing_messages.update(0)
+            new_atc_message = Logger.last_atc_message
+            atc_msg = new_atc_message.split("]")[1]
+            atc_msg_without_time = atc_msg[1:len(atc_msg)]
+            if atc_msg_without_time != self.last_atc_message:
+                self.create_messagebox(new_atc_message,self.message_font,(0,0,255,127), self.logoutgoingbox.width, screen)
+            self.last_atc_message = atc_msg_without_time
+
+            new_flight_message = Logger.last_flight_message
+            flight_msg = new_flight_message.split("]")[1]
+            flight_msg_without_time = flight_msg[1:len(flight_msg)]
+            if flight_msg_without_time != self.last_flight_message:
+                self.create_messagebox(new_flight_message,self.message_font,(0,255,0,127), self.logincomingbox.width, screen, False)
+            self.last_flight_message = flight_msg_without_time
+
+            self.outgoing_messages.draw(screen)
+            self.outgoing_messages.update(0)
+            self.incoming_messages.draw(screen)
+            self.incoming_messages.update(0)  
+        elif self.show_manual_controls:
+            draw_rect_alpha(screen, (0,255,255,127) , self.controlsbox)
         
-        pygame.display.flip()
-
+        self.planes_info.draw(screen)
+        self.planes_info.update(0)
+        if ARTSSClock.Running:
+            self.planes_info.empty()
 
     def event_handler(self, pg_event, mouse_pos):
         if pg_event.type == pygame.MOUSEBUTTONDOWN:
-            ##Click to simulate event that would display message in log box##
-            textlist = ["This is some random test text to test the text wrapping ability of text for testing. The more the test text, the better the testing.", "The better the testing, the better the test. The better the test...", "Some more random test text for testing"]
-            self.create_messagebox(random.choices(textlist)[0], self.message_font, self.logoutgoingbox.width, self.ui.screen)
-            ##-------------------------------------------------------------##
             if self.return_button.collidepoint(mouse_pos):
                 self.ui.button_sound.play()
                 return Event.GOTO_MAIN_MENU
-            elif self.play_button.get_rect(topleft = (self.ui.screen_width *2/3 + 55, 30)).collidepoint(mouse_pos):
+            elif self.play_button.get_rect(topleft = (1125, 240)).collidepoint(mouse_pos):
                 self.ui.button_sound.play()
-                self.ui.running = True
-            elif self.pause_button.get_rect(topleft = (self.ui.screen_width *2/3 - 102, 30)).collidepoint(mouse_pos):
+                ARTSSClock.setRunning(True)
+            elif self.pause_button.get_rect(topleft = (1190, 240)).collidepoint(mouse_pos):
                 self.ui.button_sound.play()
-                self.ui.running = False
+                ARTSSClock.setRunning(False)
+            elif self.logheader_button.collidepoint(mouse_pos):
+                self.ui.button_sound.play()
+                self.show_manual_controls = False
+                self.show_log = not self.show_log
+            elif self.controls_button.collidepoint(mouse_pos):
+                self.ui.button_sound.play()
+                self.show_log = False
+                self.show_manual_controls = not self.show_manual_controls
+            if not ARTSSClock.Running:  
+                for n, plane in enumerate(plane_queue):
+                    center_x = WIDTH/2
+                    center_y= HEIGHT/2
+                    vec = pygame.math.Vector2(plane.x - center_x, plane.y - center_y)
+                    rot_vec = vec.rotate(-25)
+                    dif_x = rot_vec.x - vec.x
+                    dif_y = rot_vec.y - vec.y
+                    rot_rect = pygame.Rect(plane.x + dif_x, plane.y + dif_y, plane.rect.width, plane.rect.height)
+                    if rot_rect.collidepoint(mouse_pos):
+                        if len(self.planes_info) == 0:
+                            self.display_plane_info(self.message_font, plane)
+                        else:
+                            self.planes_info.empty()
+                            self.display_plane_info(self.message_font, plane)
+        if pg_event.type == pygame.KEYDOWN:
+            if pg_event.key == pygame.K_SPACE:
+                self.ui.button_sound.play()
+                ARTSSClock.setRunning(not ARTSSClock.Running)
         return Event.NONE
 
 
 class MainMenu():
     def __init__(self, ui):
         self.ui = ui
-
-        menu_font = pygame.font.Font(None, 40)
-        menu_titlefont = pygame.font.Font(None, 60)
-
+        
+        menu_font = pygame.font.SysFont("britannic", 40)
+        menu_titlefont = pygame.font.SysFont("britannic", 55)
+        self.color_not_hovering = pygame.Color(255,255,255,215)
+        self.color_hovering = pygame.Color(128,128,128,215)
+        self.start_box_color = self.color_not_hovering
+        self.settings_box_color = self.color_not_hovering
+        self.exit_box_color = self.color_not_hovering
         self.background = pygame.image.load("graphics/mainmenu.png")
         self.background = pygame.transform.smoothscale(self.background, ui.screen.get_size())
         self.menu_text = menu_titlefont.render("Air Runway and Taxiway Simulation System", True, "Black")
@@ -413,19 +550,36 @@ class MainMenu():
         self.exit_text = menu_font.render("Exit", True, "Black")
         self.exit_button = self.exit_text.get_rect(center = (ui.screen_width/2, ui.screen_height*3/4))
 
+    def change_button_color(self):
+        mouse_pos = pygame.mouse.get_pos()
+        if self.start_button.collidepoint(mouse_pos):
+            self.start_box_color = self.color_hovering
+        else:
+            self.start_box_color = self.color_not_hovering
+        if self.settings_button.collidepoint(mouse_pos):
+            self.settings_box_color = self.color_hovering
+        else:
+            self.settings_box_color = self.color_not_hovering
+        if self.exit_button.collidepoint(mouse_pos):
+            self.exit_box_color = self.color_hovering
+        else:
+            self.exit_box_color = self.color_not_hovering
+
     def render(self):
         screen = self.ui.screen
+
         screen.blit(self.background, (0, 0)) 
-        pygame.draw.rect(screen, "White", self.menu_widget)
+        draw_rect_alpha(screen,(255,255,255,225), self.menu_widget, False)
         pygame.draw.rect(screen, "Black", self.menu_widget, 1, 3)
         screen.blit(self.menu_text, self.menu_widget)
-        pygame.draw.rect(screen, "White", self.start_button) 
+        self.change_button_color()
+        draw_rect_alpha(screen, self.start_box_color, self.start_button, False)
         pygame.draw.rect(screen, "Black", self.start_button, 1, 3)
         screen.blit(self.start_text, self.start_button)
-        pygame.draw.rect(screen, "White", self.settings_button) 
+        draw_rect_alpha(screen, self.settings_box_color, self.settings_button, False)
         pygame.draw.rect(screen, "Black", self.settings_button, 1, 3)
         screen.blit(self.settings_text, self.settings_button)
-        pygame.draw.rect(screen, "White", self.exit_button) 
+        draw_rect_alpha(screen, self.exit_box_color, self.exit_button, False)
         pygame.draw.rect(screen, "Black", self.exit_button, 1, 3)
         screen.blit(self.exit_text, self.exit_button)
 
@@ -447,9 +601,12 @@ class Settings():
     def __init__(self, ui):
         self.ui = ui
 
-        menu_font = pygame.font.Font(None, 40)
-        menu_titlefont = pygame.font.Font(None, 60)
-
+        menu_font = pygame.font.SysFont("britannic", 40)
+        menu_titlefont = pygame.font.SysFont("britannic", 55)
+        self.color_not_hovering = pygame.Color(255,255,255,215)
+        self.color_hovering = pygame.Color(128,128,128,215)
+        self.return_box_color = self.color_not_hovering
+        self.toggle_box_color = self.color_not_hovering
         self.background = pygame.image.load("graphics/settingsgear.png")
         self.background = pygame.transform.smoothscale(self.background, self.ui.screen.get_size())
         self.text = menu_titlefont.render("Settings", True, "Black")
@@ -458,18 +615,32 @@ class Settings():
         self.fullscreen_button = self.fullscreen_text.get_rect(center = (ui.screen_width/2, ui.screen_height/2))
         self.return_text = menu_font.render("<--Return", True, "Black")
         self.return_button = self.return_text.get_rect(topleft = (0,0))
-
+    
+    def change_button_color(self):
+        mouse_pos = pygame.mouse.get_pos()
+        if self.return_button.collidepoint(mouse_pos):
+            self.return_box_color = self.color_hovering
+        else:
+            self.return_box_color = self.color_not_hovering
+        if self.fullscreen_button.collidepoint(mouse_pos):
+            self.toggle_box_color = self.color_hovering
+        else:
+            self.toggle_box_color = self.color_not_hovering
+    
     def render(self):
-        self.ui.screen.blit(self.background, (0,0))
-        pygame.draw.rect(self.ui.screen, "White", self.settings_widget)
-        pygame.draw.rect(self.ui.screen, "Black", self.settings_widget, 1, 3)
-        self.ui.screen.blit(self.text, self.settings_widget)
-        pygame.draw.rect(self.ui.screen, "White", self.fullscreen_button) 
-        pygame.draw.rect(self.ui.screen, "Black", self.fullscreen_button, 1, 3)
-        self.ui.screen.blit(self.fullscreen_text, self.fullscreen_button)
-        pygame.draw.rect(self.ui.screen, "White", self.return_button) 
-        pygame.draw.rect(self.ui.screen, "Black", self.return_button, 1, 3)
-        self.ui.screen.blit(self.return_text, self.return_button)
+        screen = self.ui.screen
+
+        screen.blit(self.background, (0,0))
+        draw_rect_alpha(screen,(255,255,255,225), self.settings_widget, False)
+        pygame.draw.rect(screen, "Black", self.settings_widget, 1, 3)
+        screen.blit(self.text, self.settings_widget)
+        self.change_button_color()
+        draw_rect_alpha(screen, self.toggle_box_color, self.fullscreen_button, False)
+        pygame.draw.rect(screen, "Black", self.fullscreen_button, 1, 3)
+        screen.blit(self.fullscreen_text, self.fullscreen_button)
+        draw_rect_alpha(screen, self.return_box_color, self.return_button, False)
+        pygame.draw.rect(screen, "Black", self.return_button, 1, 3)
+        screen.blit(self.return_text, self.return_button)
 
     def event_handler(self, pg_event, mouse_pos):
         if pg_event.type == pygame.MOUSEBUTTONDOWN:
@@ -486,15 +657,17 @@ class Login():
     def __init__(self, ui):
         self.ui = ui
 
-        self.menu_font = pygame.font.Font(None, 40)
-        menu_titlefont = pygame.font.Font(None, 60)
-
+        self.menu_font = pygame.font.SysFont("britannic", 40)
+        menu_titlefont = pygame.font.SysFont("britannic", 55)
+        self.color_not_hovering = pygame.Color(255,255,255,215)
+        self.color_hovering = pygame.Color(128,128,128,215)
+        self.return_box_color = self.color_not_hovering
         self.background = pygame.image.load("graphics/login.png")
         self.background = pygame.transform.smoothscale(self.background, ui.screen.get_size())
         self.text = menu_titlefont.render("Login", True, "Black")
         self.login_widget = self.text.get_rect(midtop = (ui.screen_width/2, 0))
         self.key_text = self.menu_font.render("Enter Key", True, "Black")
-        self.key_input_box = pygame.Rect(100, 50, 540, 32)
+        self.key_input_box = pygame.Rect(100, 75, 540, 45)
         self.color_inactive = pygame.Color("White")
         self.color_active = pygame.Color("Light Gray")
         self.key_input_box_color = self.color_inactive
@@ -502,19 +675,29 @@ class Login():
         self.key_input_text = ''
         self.return_text = self.menu_font.render("<--Return", True, "Black")
         self.return_button = self.return_text.get_rect(topleft = (0,0))
+    
+    def change_button_color(self):
+        mouse_pos = pygame.mouse.get_pos()
+        if self.return_button.collidepoint(mouse_pos):
+            self.return_box_color = self.color_hovering
+        else:
+            self.return_box_color = self.color_not_hovering
 
     def render(self):
-        self.ui.screen.blit(self.background, (0,0))
-        pygame.draw.rect(self.ui.screen, "White", self.login_widget)
-        pygame.draw.rect(self.ui.screen, "Black", self.login_widget, 1, 3)
-        self.ui.screen.blit(self.text, self.login_widget)
-        pygame.draw.rect(self.ui.screen, self.key_input_box_color, self.key_input_box)
-        pygame.draw.rect(self.ui.screen, "Black", self.key_input_box, 1, 3)
+        screen = self.ui.screen
+
+        screen.blit(self.background, (0,0))
+        draw_rect_alpha(screen,(255,255,255,225), self.login_widget, False)
+        pygame.draw.rect(screen, "Black", self.login_widget, 1, 3)
+        screen.blit(self.text, self.login_widget)
+        pygame.draw.rect(screen, self.key_input_box_color, self.key_input_box)
+        pygame.draw.rect(screen, "Black", self.key_input_box, 1, 3)
         key_text_surface = self.menu_font.render(self.key_input_text, True, "Black")
-        self.ui.screen.blit(key_text_surface, (self.key_input_box.x+5, self.key_input_box.y+5))
-        pygame.draw.rect(self.ui.screen, "White", self.return_button) 
-        pygame.draw.rect(self.ui.screen, "Black", self.return_button, 1, 3)
-        self.ui.screen.blit(self.return_text, self.return_button)
+        screen.blit(key_text_surface, (self.key_input_box.x+5, self.key_input_box.y+5))
+        self.change_button_color()
+        draw_rect_alpha(screen, self.return_box_color, self.return_button, False)
+        pygame.draw.rect(screen, "Black", self.return_button, 1, 3)
+        screen.blit(self.return_text, self.return_button)
 
     def event_handler(self, pg_event, mouse_pos):
         if pg_event.type == pygame.MOUSEBUTTONDOWN:
@@ -526,7 +709,6 @@ class Login():
             else:
                 self.input_active = False
             self.key_input_box_color = self.color_active if self.input_active else self.color_inactive
-
         if pg_event.type == pygame.KEYDOWN:
             if self.input_active:
                 if pg_event.key == pygame.K_RETURN:
@@ -553,7 +735,6 @@ class UserInterface():
         self.menu_channel = pygame.mixer.Channel(0)
         self.menu_channel.play(self.bg_music, loops = -1)
 
-        
         with open('settings.txt', 'r') as f:
             settingsdata = f.read().strip()
         self.fullscreen_setting = ast.literal_eval(settingsdata.split('=')[1].strip())
@@ -565,7 +746,6 @@ class UserInterface():
         self.clock = pygame.time.Clock()
 
         self.current_ui = None 
-        self.running = True
 
     def render(self):
         self.current_ui.render()
@@ -584,35 +764,37 @@ class UserInterface():
     
     def transition_state(self, new_state):
         # python's garbage collector takes care of "unloading"
-        if new_state == State.MAIN_MENU and self.running:
+        if new_state == State.MAIN_MENU:
             self.menu_channel.set_volume(0.1)
-            self.current_ui = MainMenu(self) 
+            self.current_ui = MainMenu(self)
+            ARTSSClock.setRunning(False) 
         elif new_state == State.SETTINGS:
             self.menu_channel.set_volume(0.1)
             self.current_ui = Settings(self)
+            ARTSSClock.setRunning(False) 
         elif new_state == State.LOGIN:
             self.menu_channel.set_volume(0.1)
             self.current_ui = Login(self)
+            ARTSSClock.setRunning(False) 
         elif new_state == State.FULLSCREEN:
             if not self.fullscreen_setting:
                 self.screen = pygame.display.set_mode(flags=pygame.FULLSCREEN)
                 self.screen_width, self.screen_height = self.screen.get_size()
                 self.fullscreen_setting = True
-                settingline = "Fullscreen = True\n"
                 with open("settings.txt","w+") as f:
-                    f.write(settingline)
+                    f.write("Fullscreen = True\n")
                 self.current_ui = Settings(self)
             elif self.fullscreen_setting:
-                self.screen = pygame.display.set_mode((1200, 800))
+                self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
                 self.screen_width, self.screen_height = self.screen.get_size()
                 self.fullscreen_setting = False
-                settingline = "Fullscreen = False\n"
                 with open("settings.txt","w+") as f:
-                    f.write(settingline)
+                    f.write("Fullscreen = False\n")
                 self.current_ui = Settings(self)
         elif new_state == State.SIMULATION:
             self.menu_channel.set_volume(0)
             self.current_ui = Simulation(self)
+            ARTSSClock.setRunning(True)
 
     def quit(self):
         pygame.mixer.quit()

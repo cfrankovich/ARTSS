@@ -6,9 +6,11 @@ class ARTSSClock():
     TICKS_PER_MINUTE = 1
     start_time = "0000" 
     ticks = 0 
+    Running = False
     
     def tick():
-        ARTSSClock.ticks += 1
+        if ARTSSClock.Running:
+            ARTSSClock.ticks += 1
 
     def get_fancy_time():
         tick_minutes = ARTSSClock.ticks / ARTSSClock.TICKS_PER_MINUTE 
@@ -18,8 +20,12 @@ class ARTSSClock():
         str_mins = f"0{minutes}" if minutes < 10 else f"{minutes}"
         return f"{int(hours)}:{str_mins}" 
 
+    def setRunning(status):
+        ARTSSClock.Running = status
 
 class Logger():
+    last_atc_message = ""
+    last_flight_message = ""
     def __init__(self):
         unix_time = int(time.time()) 
         dir = f"artss-logs/sim-{unix_time}"
@@ -31,13 +37,15 @@ class Logger():
 
     def log_atc_com(self, com):
         self.atc_log_file.write(f"[{ARTSSClock.get_fancy_time()}] {com}\n")
-
+        Logger.last_atc_message = f"[{ARTSSClock.get_fancy_time()}] {com}"
+    
     def log_flight_com(self, flight_num, com):
         dir = f"{self.flight_dir}/{flight_num}.log" 
         if not os.path.exists(dir):
             new_flight_log_file = open(dir, "a") 
             self.flight_log_files[flight_num] = new_flight_log_file 
         self.flight_log_files[flight_num].write(f"[{ARTSSClock.get_fancy_time()}] {com}\n")
+        Logger.last_flight_message = f"[{ARTSSClock.get_fancy_time()}] {com}"
 
     def close_flight_log(self, flight_num):
         self.flight_log_files[flight_num].close()
